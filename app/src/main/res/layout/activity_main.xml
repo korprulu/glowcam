@@ -85,12 +85,16 @@
                 android:clipToOutline="true"
                 android:contentDescription="@string/gallery"
                 android:scaleType="centerCrop" />
-            <Button
+            <ImageButton
                 android:id="@+id/btn_switch"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
+                android:layout_width="60dp"
+                android:layout_height="60dp"
                 android:layout_gravity="center_vertical|end"
-                android:text="@string/switch_camera" />
+                android:background="@drawable/switch_bg"
+                android:clipToOutline="true"
+                android:contentDescription="@string/switch_camera"
+                android:scaleType="center"
+                android:src="@drawable/ic_switch_camera" />
             <ImageButton
                 android:id="@+id/btn_shutter"
                 android:layout_width="76dp"
