@@ -29,6 +29,9 @@ class GlPreviewView @JvmOverloads constructor(context: Context, attrs: Attribute
     @Volatile var params = BeautyParams()
     @Volatile var mirror = false
 
+    /** Height of the status bar in px: the picture starts below it. */
+    @Volatile var topInset = 0f
+
     /** The GL context was lost and recreated: the camera must be re-bound to get a new surface. */
     var onContextRecreated: (() -> Unit)? = null
     var onGlError: (() -> Unit)? = null
@@ -59,6 +62,7 @@ class GlPreviewView @JvmOverloads constructor(context: Context, attrs: Attribute
         private var uTexMat = 0
         private var uRot = 0
         private var uScale = 0
+        private var uOffset = 0
         private var uMirror = 0
         private var uTexel = 0
         private var uSpacing = 0
@@ -124,6 +128,7 @@ class GlPreviewView @JvmOverloads constructor(context: Context, attrs: Attribute
             uTexMat = GLES20.glGetUniformLocation(program, "uTexMat")
             uRot = GLES20.glGetUniformLocation(program, "uRot")
             uScale = GLES20.glGetUniformLocation(program, "uScale")
+            uOffset = GLES20.glGetUniformLocation(program, "uOffset")
             uMirror = GLES20.glGetUniformLocation(program, "uMirror")
             uTexel = GLES20.glGetUniformLocation(program, "uTexel")
             uSpacing = GLES20.glGetUniformLocation(program, "uSpacing")
@@ -182,7 +187,9 @@ class GlPreviewView @JvmOverloads constructor(context: Context, attrs: Attribute
 
             val rot = shaderRotation
             val (fw, fh) = PreviewTransform.displaySize(bufW, bufH, fullRotation)
-            val (sx, sy) = PreviewTransform.cropScale(viewW.toFloat(), viewH.toFloat(), fw.toFloat(), fh.toFloat())
+            val rect = PreviewTransform.fitRect(viewW.toFloat(), viewH.toFloat(), fw.toFloat(), fh.toFloat(), topInset)
+            val (sx, sy) = PreviewTransform.quadScale(rect, viewW.toFloat(), viewH.toFloat())
+            val (ox, oy) = PreviewTransform.quadOffset(rect, viewW.toFloat(), viewH.toFloat())
             val p = params.clamped()
 
             GLES20.glUseProgram(program)
@@ -191,6 +198,7 @@ class GlPreviewView @JvmOverloads constructor(context: Context, attrs: Attribute
             GLES20.glUniformMatrix4fv(uTexMat, 1, false, texMat, 0)
             GLES20.glUniformMatrix2fv(uRot, 1, false, PreviewTransform.rotationMat2(rot), 0)
             GLES20.glUniform2f(uScale, sx, sy)
+            GLES20.glUniform2f(uOffset, ox, oy)
             GLES20.glUniform1f(uMirror, if (mirror) 1f else 0f)
             GLES20.glUniform2f(uTexel, 1f / bufW, 1f / bufH)
             GLES20.glUniform1f(uSpacing, PreviewTransform.blurSpacing(bufW, bufH))
@@ -215,10 +223,11 @@ class GlPreviewView @JvmOverloads constructor(context: Context, attrs: Attribute
             uniform mat4 uTexMat;
             uniform mat2 uRot;
             uniform vec2 uScale;
+            uniform vec2 uOffset;
             uniform float uMirror;
             varying vec2 vUV;
             void main() {
-                gl_Position = vec4(aPos * uScale, 0.0, 1.0);
+                gl_Position = vec4(aPos * uScale + uOffset, 0.0, 1.0);
                 vec2 d = aPos * 0.5 + 0.5;
                 if (uMirror > 0.5) d.x = 1.0 - d.x;
                 vec2 b = uRot * (d - 0.5) + 0.5;

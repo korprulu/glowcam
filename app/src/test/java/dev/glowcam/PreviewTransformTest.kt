@@ -48,15 +48,29 @@ class PreviewTransformTest {
     }
 
     @Test
-    fun cropScaleFillsViewAndOverflowsOneAxis() {
-        // 3:4 frame in a taller 1080x2400 view: height-limited, sides cropped (sx > 1, sy == 1).
-        val (sx, sy) = PreviewTransform.cropScale(1080f, 2400f, 480f, 640f)
-        assertEquals(1f, sy, 1e-5f)
-        assertEquals(true, sx > 1f)
-        // frame wider than view aspect: width-limited
-        val (wx, wy) = PreviewTransform.cropScale(1080f, 1200f, 480f, 640f)
-        assertEquals(1f, wx, 1e-5f)
-        assertEquals(true, wy > 1f)
+    fun frameIsFittedNotCropped() {
+        // Tall view: width-limited, whole 3:4 frame visible, top-aligned under the inset.
+        val r = PreviewTransform.fitRect(1080f, 2400f, 480f, 640f, 100f)
+        assertEquals(0f, r.left, 1e-3f)
+        assertEquals(100f, r.top, 1e-3f)
+        assertEquals(1080f, r.width, 1e-3f)
+        assertEquals(1440f, r.height, 1e-3f)
+        // Short wide view: height-limited and centred horizontally.
+        val w = PreviewTransform.fitRect(2000f, 1000f, 480f, 640f, 0f)
+        assertEquals(1000f, w.height, 1e-3f)
+        assertEquals(750f, w.width, 1e-3f)
+        assertEquals(625f, w.left, 1e-3f)
+    }
+
+    @Test
+    fun quadCoversExactlyTheFrameRect() {
+        val r = PreviewTransform.fitRect(1080f, 2400f, 480f, 640f, 100f)
+        val (sx, sy) = PreviewTransform.quadScale(r, 1080f, 2400f)
+        val (ox, oy) = PreviewTransform.quadOffset(r, 1080f, 2400f)
+        assertEquals(1f, sx, 1e-4f)
+        assertEquals(1f - 2f * 100f / 2400f, oy + sy, 1e-4f)
+        assertEquals(1f - 2f * (100f + 1440f) / 2400f, oy - sy, 1e-4f)
+        assertEquals(0f, ox, 1e-4f)
     }
 
     @Test

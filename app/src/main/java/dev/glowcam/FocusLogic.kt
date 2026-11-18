@@ -1,7 +1,6 @@
 package dev.glowcam
 
 import kotlin.math.abs
-import kotlin.math.max
 
 /** Camera2 CONTROL_AF_STATE values (numeric so the logic stays free of Android types). */
 object AfState {
@@ -85,20 +84,24 @@ class FocusController {
     }
 }
 
-/** Maps between view coordinates and the normalized camera frame shown with centerCrop. */
+/** Maps between view coordinates and the normalized camera frame (drawn by [PreviewTransform.fitRect]). */
 object FocusMapping {
-    fun viewToFrame(x: Float, y: Float, viewW: Float, viewH: Float, frameW: Float, frameH: Float): Pair<Float, Float> {
-        val s = max(viewW / frameW, viewH / frameH)
-        val offX = (viewW - frameW * s) / 2f
-        val offY = (viewH - frameH * s) / 2f
-        return ((x - offX) / s / frameW).coerceIn(0f, 1f) to ((y - offY) / s / frameH).coerceIn(0f, 1f)
+    /** Null when the point is outside the picture, e.g. in the black area below it. */
+    fun viewToFrame(
+        x: Float, y: Float, viewW: Float, viewH: Float, frameW: Float, frameH: Float, topInset: Float = 0f,
+    ): Pair<Float, Float>? {
+        val r = PreviewTransform.fitRect(viewW, viewH, frameW, frameH, topInset)
+        val nx = (x - r.left) / r.width
+        val ny = (y - r.top) / r.height
+        if (nx < 0f || nx > 1f || ny < 0f || ny > 1f) return null
+        return nx to ny
     }
 
-    fun frameToView(nx: Float, ny: Float, viewW: Float, viewH: Float, frameW: Float, frameH: Float): Pair<Float, Float> {
-        val s = max(viewW / frameW, viewH / frameH)
-        val offX = (viewW - frameW * s) / 2f
-        val offY = (viewH - frameH * s) / 2f
-        return (nx * frameW * s + offX) to (ny * frameH * s + offY)
+    fun frameToView(
+        nx: Float, ny: Float, viewW: Float, viewH: Float, frameW: Float, frameH: Float, topInset: Float = 0f,
+    ): Pair<Float, Float> {
+        val r = PreviewTransform.fitRect(viewW, viewH, frameW, frameH, topInset)
+        return (r.left + nx * r.width) to (r.top + ny * r.height)
     }
 }
 

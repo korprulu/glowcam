@@ -33,11 +33,22 @@ object PreviewTransform {
         return (m[0] * ox + m[2] * oy + 0.5f) to (m[1] * ox + m[3] * oy + 0.5f)
     }
 
-    /** Half-extent of the quad in clip space so the frame fills the view (centre-crop). */
-    fun cropScale(viewW: Float, viewH: Float, frameW: Float, frameH: Float): Pair<Float, Float> {
-        val s = max(viewW / frameW, viewH / frameH)
-        return (frameW * s / viewW) to (frameH * s / viewH)
+    /** Where the whole frame is drawn: fitted (never cropped), top-aligned below [topInset]. */
+    class FrameRect(val left: Float, val top: Float, val width: Float, val height: Float)
+
+    fun fitRect(viewW: Float, viewH: Float, frameW: Float, frameH: Float, topInset: Float): FrameRect {
+        val s = minOf(viewW / frameW, (viewH - topInset) / frameH)
+        val w = frameW * s
+        val h = frameH * s
+        return FrameRect((viewW - w) / 2f, topInset, w, h)
     }
+
+    /** Clip-space half-extent of the frame quad for [fitRect]. */
+    fun quadScale(r: FrameRect, viewW: Float, viewH: Float): Pair<Float, Float> = (r.width / viewW) to (r.height / viewH)
+
+    /** Clip-space centre of the frame quad for [fitRect]. */
+    fun quadOffset(r: FrameRect, viewW: Float, viewH: Float): Pair<Float, Float> =
+        ((r.left + r.width / 2f) / viewW * 2f - 1f) to (1f - 2f * (r.top + r.height / 2f) / viewH)
 
     /** Frame size after rotation. */
     fun displaySize(bufW: Int, bufH: Int, rotationDegrees: Int): Pair<Int, Int> =

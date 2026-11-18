@@ -109,6 +109,8 @@ class MainActivity : ComponentActivity() {
         val controls = findViewById<View>(R.id.controls)
         ViewCompat.setOnApplyWindowInsetsListener(findViewById(R.id.root)) { _, insets ->
             val bars = insets.getInsets(WindowInsetsCompat.Type.systemBars())
+            previewView.topInset = bars.top.toFloat()
+            previewView.requestRender()
             controls.setPadding(
                 controls.paddingLeft, controls.paddingTop, controls.paddingRight,
                 bars.bottom + (16 * resources.displayMetrics.density).toInt(),
@@ -357,6 +359,7 @@ class MainActivity : ComponentActivity() {
         }
         val (x, y) = FocusMapping.frameToView(
             focus.nx, focus.ny, previewView.width.toFloat(), previewView.height.toFloat(), fw.toFloat(), fh.toFloat(),
+            previewView.topInset,
         )
         focusRing.showAt(x, y)
     }
@@ -403,7 +406,8 @@ class MainActivity : ComponentActivity() {
         if (fw == 0 || fh == 0) return
         val (nx, ny) = FocusMapping.viewToFrame(
             x, y, previewView.width.toFloat(), previewView.height.toFloat(), fw.toFloat(), fh.toFloat(),
-        )
+            previewView.topInset,
+        ) ?: return // tapped outside the picture
         val action = meteringAction(nx, ny) ?: return
         if (camera?.cameraInfo?.isFocusMeteringSupported(action) != true) {
             Log.w(TAG, "focus metering not supported by this camera")

@@ -78,13 +78,15 @@ class FocusLogicTest {
 
     // ---- mapping ----
     @Test
-    fun centerCropMappingRoundTrips() {
-        // 480x640 frame shown in a 1080x2000 view (height-limited, sides cropped).
-        val (fx, fy) = FocusMapping.viewToFrame(540f, 1000f, 1080f, 2000f, 480f, 640f)
+    fun fitMappingRoundTripsAndRejectsTapsOutsidePicture() {
+        // 480x640 frame in a 1080x2400 view, top inset 100: scale 2.25, picture 1080x1440 from y=100.
+        val (fx, fy) = FocusMapping.viewToFrame(540f, 100f + 720f, 1080f, 2400f, 480f, 640f, 100f)!!
         assertEquals(0.5f, fx, 1e-4f); assertEquals(0.5f, fy, 1e-4f)
-        val (vx, vy) = FocusMapping.frameToView(0.3f, 0.8f, 1080f, 2000f, 480f, 640f)
-        val (bx, by) = FocusMapping.viewToFrame(vx, vy, 1080f, 2000f, 480f, 640f)
+        val (vx, vy) = FocusMapping.frameToView(0.3f, 0.8f, 1080f, 2400f, 480f, 640f, 100f)
+        val (bx, by) = FocusMapping.viewToFrame(vx, vy, 1080f, 2400f, 480f, 640f, 100f)!!
         assertEquals(0.3f, bx, 1e-4f); assertEquals(0.8f, by, 1e-4f)
+        assertNull(FocusMapping.viewToFrame(540f, 50f, 1080f, 2400f, 480f, 640f, 100f))   // under the status bar
+        assertNull(FocusMapping.viewToFrame(540f, 2000f, 1080f, 2400f, 480f, 640f, 100f)) // below the picture
     }
 
     // ---- tracker ----
