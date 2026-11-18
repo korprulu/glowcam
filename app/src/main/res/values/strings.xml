@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">GlowCam 美顏相機</string>
+    <string name="smooth">磨皮</string>
+    <string name="whiten">美白</string>
+    <string name="rosy">紅潤</string>
+    <string name="switch_camera">切換鏡頭</string>
+    <string name="shutter">拍照</string>
+    <string name="need_permission">需要相機權限才能使用美顏相機</string>
+    <string name="grant">授予權限</string>
+    <string name="saved">已儲存至 相簿/Pictures/GlowCam</string>
+    <string name="save_failed">儲存失敗</string>
+    <string name="camera_failed">無法啟動相機</string>
+</resources>

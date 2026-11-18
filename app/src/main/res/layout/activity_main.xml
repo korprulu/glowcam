@@ -1,0 +1,76 @@
+<?xml version="1.0" encoding="utf-8"?>
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/root"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@android:color/black">
+
+    <ImageView
+        android:id="@+id/preview"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:scaleType="centerCrop" />
+
+    <LinearLayout
+        android:id="@+id/permission_panel"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:gravity="center"
+        android:orientation="vertical"
+        android:visibility="gone">
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="@string/need_permission"
+            android:textColor="@android:color/white"
+            android:textSize="16sp" />
+        <Button
+            android:id="@+id/grant"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="16dp"
+            android:text="@string/grant" />
+    </LinearLayout>
+
+    <LinearLayout
+        android:id="@+id/controls"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_gravity="bottom"
+        android:background="#66000000"
+        android:orientation="vertical"
+        android:padding="16dp">
+
+        <LinearLayout style="@style/SliderRow">
+            <TextView style="@style/SliderLabel" android:text="@string/smooth" />
+            <SeekBar android:id="@+id/seek_smooth" style="@style/SliderBar" android:progress="60" />
+        </LinearLayout>
+        <LinearLayout style="@style/SliderRow">
+            <TextView style="@style/SliderLabel" android:text="@string/whiten" />
+            <SeekBar android:id="@+id/seek_whiten" style="@style/SliderBar" android:progress="30" />
+        </LinearLayout>
+        <LinearLayout style="@style/SliderRow">
+            <TextView style="@style/SliderLabel" android:text="@string/rosy" />
+            <SeekBar android:id="@+id/seek_rosy" style="@style/SliderBar" android:progress="20" />
+        </LinearLayout>
+
+        <FrameLayout
+            android:layout_width="match_parent"
+            android:layout_height="88dp"
+            android:layout_marginTop="8dp">
+            <Button
+                android:id="@+id/btn_switch"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_gravity="center_vertical|start"
+                android:text="@string/switch_camera" />
+            <ImageButton
+                android:id="@+id/btn_shutter"
+                android:layout_width="76dp"
+                android:layout_height="76dp"
+                android:layout_gravity="center"
+                android:background="@drawable/shutter_bg"
+                android:contentDescription="@string/shutter" />
+        </FrameLayout>
+    </LinearLayout>
+</FrameLayout>
