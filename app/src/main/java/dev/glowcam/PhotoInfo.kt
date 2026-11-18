@@ -1,6 +1,8 @@
 package dev.glowcam
 
 import java.text.DateFormat
+import java.time.Instant
+import java.time.ZoneId
 import java.util.Date
 
 /** Builds the caption shown above a photo: `<date> <time>・<place>` in the system's date/time format. */
@@ -19,6 +21,12 @@ object PhotoInfo {
         val date = dateFormat.format(when_) + " " + timeFormat.format(when_)
         val p = place?.trim().orEmpty()
         return if (p.isEmpty()) date else "$date・$p"
+    }
+
+    /** Photos from an earlier (or later) calendar year than [nowMillis] show the year as well. */
+    fun showsYear(takenMillis: Long?, nowMillis: Long, zone: ZoneId = ZoneId.systemDefault()): Boolean {
+        if (takenMillis == null || takenMillis <= 0L) return false
+        return Instant.ofEpochMilli(takenMillis).atZone(zone).year != Instant.ofEpochMilli(nowMillis).atZone(zone).year
     }
 
     /** Short place label from geocoder address parts: city, then district, no duplicates. */

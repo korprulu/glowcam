@@ -51,6 +51,26 @@ class PhotoInfoTest {
     }
 
     @Test
+    fun yearIsShownOnlyForOtherYears() {
+        val now = ZonedDateTime.of(2026, 11, 19, 9, 0, 0, 0, zone).toInstant().toEpochMilli()
+        val sameYear = ZonedDateTime.of(2026, 1, 1, 0, 0, 0, 0, zone).toInstant().toEpochMilli()
+        val lastYear = ZonedDateTime.of(2025, 12, 31, 23, 59, 0, 0, zone).toInstant().toEpochMilli()
+        assertEquals(false, PhotoInfo.showsYear(sameYear, now, zone))
+        assertEquals(true, PhotoInfo.showsYear(lastYear, now, zone))
+        assertEquals(false, PhotoInfo.showsYear(null, now, zone))
+        assertEquals(false, PhotoInfo.showsYear(0L, now, zone))
+    }
+
+    @Test
+    fun yearBoundaryUsesTheGivenZone() {
+        // 2026-01-01 00:30 in Taipei is still 2025 in UTC.
+        val t = ZonedDateTime.of(2026, 1, 1, 0, 30, 0, 0, zone).toInstant().toEpochMilli()
+        val now = ZonedDateTime.of(2026, 6, 1, 12, 0, 0, 0, zone).toInstant().toEpochMilli()
+        assertEquals(false, PhotoInfo.showsYear(t, now, zone))
+        assertEquals(true, PhotoInfo.showsYear(t, now, ZoneId.of("UTC")))
+    }
+
+    @Test
     fun placeNameJoinsDistinctParts() {
         assertEquals("台北市 信義區", PhotoInfo.placeName("台北市", "信義區"))
         assertEquals("台北市", PhotoInfo.placeName("台北市", null))

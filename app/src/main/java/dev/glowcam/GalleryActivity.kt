@@ -95,7 +95,9 @@ class GalleryActivity : ComponentActivity() {
         val text = if (p == null) "" else {
             val locale = Locale.getDefault()
             // Date order/wording follows the system locale; 12/24-hour follows the system clock setting.
-            val datePattern = AndroidDateFormat.getBestDateTimePattern(locale, "Md")
+            // Photos from another year also show the year.
+            val skeleton = if (PhotoInfo.showsYear(p.takenMillis, System.currentTimeMillis())) "yMd" else "Md"
+            val datePattern = AndroidDateFormat.getBestDateTimePattern(locale, skeleton)
             val timePattern = AndroidDateFormat.getBestDateTimePattern(
                 locale, if (AndroidDateFormat.is24HourFormat(this)) "Hm" else "hm",
             )
