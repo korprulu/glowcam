@@ -5,6 +5,7 @@ import android.content.Intent
 import android.graphics.Bitmap
 import android.os.Bundle
 import android.provider.MediaStore
+import android.text.format.DateFormat as AndroidDateFormat
 import android.view.Gravity
 import android.view.View
 import android.view.ViewGroup
@@ -19,6 +20,8 @@ import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.recyclerview.widget.RecyclerView
 import androidx.viewpager2.widget.ViewPager2
+import java.text.SimpleDateFormat
+import java.util.Locale
 import java.util.concurrent.ExecutorService
 import java.util.concurrent.Executors
 
@@ -89,7 +92,15 @@ class GalleryActivity : ComponentActivity() {
     /** Caption (top) and action buttons (bottom) only apply to photo pages. */
     private fun updateChrome() {
         val p = currentPhoto()
-        val text = if (p == null) "" else PhotoInfo.caption(p.takenMillis, p.place)
+        val text = if (p == null) "" else {
+            val locale = Locale.getDefault()
+            // Date order/wording follows the system locale; 12/24-hour follows the system clock setting.
+            val datePattern = AndroidDateFormat.getBestDateTimePattern(locale, "Md")
+            val timePattern = AndroidDateFormat.getBestDateTimePattern(
+                locale, if (AndroidDateFormat.is24HourFormat(this)) "Hm" else "hm",
+            )
+            PhotoInfo.caption(p.takenMillis, p.place, SimpleDateFormat(datePattern, locale), SimpleDateFormat(timePattern, locale))
+        }
         caption.text = text
         caption.visibility = if (text.isEmpty()) View.INVISIBLE else View.VISIBLE
         bottomBar.visibility = if (p == null) View.INVISIBLE else View.VISIBLE
