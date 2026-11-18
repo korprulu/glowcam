@@ -29,26 +29,39 @@ class ZoomMathTest {
     }
 
     @Test
-    fun tapCyclesPresetsAndWraps() {
-        assertEquals(2f, ZoomMath.nextPreset(1f, 1f, 8f), 0f)
-        assertEquals(3f, ZoomMath.nextPreset(2f, 1f, 8f), 0f)
-        assertEquals(5f, ZoomMath.nextPreset(3f, 1f, 8f), 0f)
-        assertEquals(1f, ZoomMath.nextPreset(5f, 1f, 8f), 0f)
-        assertEquals(2f, ZoomMath.nextPreset(1.4f, 1f, 8f), 0f)
+    fun presetsFollowCameraRange() {
+        assertEquals(listOf(0.5f, 1f, 2f), ZoomMath.presets(0.5f, 8f))
+        assertEquals(listOf(0.6f, 1f, 2f), ZoomMath.presets(0.6f, 10f))
+        assertEquals(listOf(1f, 2f), ZoomMath.presets(1f, 4f))
+        assertEquals(listOf(1f), ZoomMath.presets(1f, 1.5f))
+        assertEquals(listOf(0.5f, 1f), ZoomMath.presets(0.5f, 1.5f))
     }
 
     @Test
-    fun tapRespectsCameraRange() {
-        assertEquals(1f, ZoomMath.nextPreset(2f, 1f, 2f), 0f)   // max 2x: 1 -> 2 -> 1
-        assertEquals(1f, ZoomMath.nextPreset(1f, 1f, 1f), 0f)   // no zoom support
-        assertEquals(0.6f, ZoomMath.nextPreset(1f, 0.6f, 1f), 0f) // ultra-wide minimum
+    fun selectedButtonIsHighestPresetNotAboveRatio() {
+        val p = listOf(0.5f, 1f, 2f)
+        assertEquals(0, ZoomMath.selectedIndex(p, 0.5f))
+        assertEquals(0, ZoomMath.selectedIndex(p, 0.9f))
+        assertEquals(1, ZoomMath.selectedIndex(p, 1f))
+        assertEquals(1, ZoomMath.selectedIndex(p, 1.4f))
+        assertEquals(2, ZoomMath.selectedIndex(p, 2f))
+        assertEquals(2, ZoomMath.selectedIndex(p, 7f))
+    }
+
+    @Test
+    fun lowerBoundCanBeHalfX() {
+        assertEquals(0.5f, ZoomMath.ratioFromFraction(0f, 0.5f, 8f), 1e-4f)
+        assertEquals(1f, ZoomMath.ratioFromFraction(0.25f, 0.5f, 8f), 1e-3f)
     }
 
     @Test
     fun formatting() {
-        assertEquals("1x", ZoomMath.format(1f))
-        assertEquals("2x", ZoomMath.format(2.02f))
-        assertEquals("1.5x", ZoomMath.format(1.5f))
-        assertEquals("0.6x", ZoomMath.format(0.6f))
+        assertEquals("1×", ZoomMath.format(1f))
+        assertEquals("2×", ZoomMath.format(2.02f))
+        assertEquals("1.4×", ZoomMath.format(1.4f))
+        assertEquals("0.5×", ZoomMath.format(0.5f))
+        assertEquals(".5", ZoomMath.plain(0.5f))
+        assertEquals("1", ZoomMath.plain(1f))
+        assertEquals("2", ZoomMath.plain(2f))
     }
 }

@@ -9,11 +9,13 @@ import android.view.HapticFeedbackConstants
 import android.view.MotionEvent
 import android.view.View
 import android.view.ViewConfiguration
+import kotlin.math.abs
 
 /**
- * Zoom button that becomes a slider while held.
- * - tap: [onTap] (cycle presets)
- * - press and hold: expands into a horizontal slider; drag to zoom; release collapses back to the button
+ * Zoom control.
+ * - resting: a pill with up to three quick buttons (e.g. `.5  1×  2`); tap one to jump to it
+ * - press and hold: the pill widens into a ruler with a bubble showing the ratio; drag to zoom;
+ *   release collapses back to the buttons
  */
 class ZoomControl @JvmOverloads constructor(context: Context, attrs: AttributeSet? = null) : View(context, attrs) {
 
@@ -24,34 +26,49 @@ class ZoomControl @JvmOverloads constructor(context: Context, attrs: AttributeSe
             field = v
             invalidate()
         }
-    var onTap: (() -> Unit)? = null
+
+    /** Called with the ratio of a tapped quick button. */
+    var onSelect: ((Float) -> Unit)? = null
     var onRatioChanged: ((Float) -> Unit)? = null
 
-    /** True while the slider is open (finger down after a long press). */
+    /** True while the ruler is open (finger down after a long press). */
     var expanded = false
         private set
 
     private val d = resources.displayMetrics.density
-    private val btnRadius = 24 * d
-    private val trackHalfHeight = 22 * d
-    private val sidePad = 24 * d
-    private val fill = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = 0x99000000.toInt() }
-    private val stroke = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-        color = 0xFFFFFFFF.toInt(); style = Paint.Style.STROKE; strokeWidth = 2 * d
-    }
-    private val white = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = 0xFFFFFFFF.toInt() }
+    private val itemW = 48 * d
+    private val pillH = 48 * d
+    private val circleR = 22 * d
+    private val bottomGap = 4 * d
+    private val rulerPad = 28 * d
+    private val sideMargin = 16 * d
+
+    private val pillPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = 0xE61C1B1B.toInt() }
+    private val selPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = 0xFFCDE5F5.toInt() }
     private val textLight = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-        color = 0xFFFFFFFF.toInt(); textSize = 14 * d; textAlign = Paint.Align.CENTER; isFakeBoldText = true
+        color = 0xFFFFFFFF.toInt(); textSize = 15 * d; textAlign = Paint.Align.CENTER; isFakeBoldText = true
     }
-    private val textDark = Paint(textLight).apply { color = 0xFF000000.toInt() }
-    private val touchSlop = ViewConfiguration.get(context).scaledTouchSlop
+    private val textDark = Paint(textLight).apply { color = 0xFF1F3A4D.toInt() }
+    private val tickPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        color = 0xFFA9CCE3.toInt(); strokeWidth = 2 * d; strokeCap = Paint.Cap.ROUND
+    }
+    private val labelPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        color = 0xFFA9CCE3.toInt(); textSize = 12 * d; textAlign = Paint.Align.CENTER; isFakeBoldText = true
+    }
 
     private var downInside = false
     private var longPressed = false
+    private var downItem = -1
+    private var lastX = 0f
+    private var anchorX = 0f
+    private var anchorFraction = 0f
+
     private val longPress = Runnable {
         if (downInside) {
             longPressed = true
             expanded = true
+            anchorX = lastX
+            anchorFraction = ZoomMath.fractionFromRatio(ratio, minRatio, maxRatio)
             parent?.requestDisallowInterceptTouchEvent(true)
             performHapticFeedback(HapticFeedbackConstants.LONG_PRESS)
             invalidate()
@@ -60,35 +77,59 @@ class ZoomControl @JvmOverloads constructor(context: Context, attrs: AttributeSe
 
     private fun supportsZoom() = maxRatio - minRatio > 0.05f
 
-    private fun trackLeft() = sidePad
-    private fun trackRight() = width - sidePad
+    private fun presets() = ZoomMath.presets(minRatio, maxRatio)
 
-    private fun inButton(x: Float, y: Float): Boolean {
-        val dx = x - width / 2f
-        val dy = y - height / 2f
-        return dx * dx + dy * dy <= (btnRadius + 8 * d) * (btnRadius + 8 * d)
+    private fun pillCenterY() = height - bottomGap - pillH / 2f
+
+    private fun collapsedPill(n: Int): RectF {
+        val w = n * itemW + 8 * d
+        val cx = width / 2f
+        val cy = pillCenterY()
+        return RectF(cx - w / 2, cy - pillH / 2, cx + w / 2, cy + pillH / 2)
     }
+
+    private fun expandedPill(): RectF {
+        val cy = pillCenterY()
+        return RectF(sideMargin, cy - pillH / 2, width - sideMargin, cy + pillH / 2)
+    }
+
+    private fun rulerLeft() = expandedPill().left + rulerPad
+    private fun rulerRight() = expandedPill().right - rulerPad
+
+    private fun xForFraction(f: Float) = rulerLeft() + f * (rulerRight() - rulerLeft())
 
     override fun onTouchEvent(e: MotionEvent): Boolean {
         if (!supportsZoom()) return false
+        lastX = e.x
         when (e.actionMasked) {
             MotionEvent.ACTION_DOWN -> {
-                if (!inButton(e.x, e.y)) return false
+                val ps = presets()
+                val pill = collapsedPill(ps.size)
+                if (!pill.contains(e.x, e.y)) return false
                 downInside = true
                 longPressed = false
+                downItem = ((e.x - (pill.left + 4 * d)) / itemW).toInt().coerceIn(0, ps.size - 1)
                 postDelayed(longPress, ViewConfiguration.getLongPressTimeout().toLong())
                 return true
             }
-            MotionEvent.ACTION_MOVE -> {
-                if (expanded) updateFromX(e.x)
+            MotionEvent.ACTION_MOVE -> if (expanded) {
+                val span = rulerRight() - rulerLeft()
+                val f = (anchorFraction + (e.x - anchorX) / span).coerceIn(0f, 1f)
+                val r = ZoomMath.ratioFromFraction(f, minRatio, maxRatio)
+                ratio = r
+                onRatioChanged?.invoke(r)
             }
             MotionEvent.ACTION_UP -> {
                 removeCallbacks(longPress)
                 val wasLong = longPressed
                 collapse()
-                if (!wasLong && downInside) {
+                if (!wasLong && downInside && downItem >= 0) {
                     performClick()
-                    onTap?.invoke()
+                    val target = presets().getOrNull(downItem)
+                    if (target != null) {
+                        ratio = target
+                        onSelect?.invoke(target)
+                    }
                 }
                 downInside = false
             }
@@ -109,32 +150,67 @@ class ZoomControl @JvmOverloads constructor(context: Context, attrs: AttributeSe
         invalidate()
     }
 
-    private fun updateFromX(x: Float) {
-        val f = ((x - trackLeft()) / (trackRight() - trackLeft())).coerceIn(0f, 1f)
-        val r = ZoomMath.ratioFromFraction(f, minRatio, maxRatio)
-        ratio = r
-        onRatioChanged?.invoke(r)
-    }
-
     override fun onDraw(canvas: Canvas) {
         if (!supportsZoom()) return
-        val cx = width / 2f
-        val cy = height / 2f
-        if (!expanded) {
-            canvas.drawCircle(cx, cy, btnRadius, fill)
-            canvas.drawCircle(cx, cy, btnRadius, stroke)
-            canvas.drawText(ZoomMath.format(ratio), cx, cy + textLight.textSize / 3f, textLight)
-            return
+        if (expanded) drawRuler(canvas) else drawButtons(canvas)
+    }
+
+    private fun drawButtons(canvas: Canvas) {
+        val ps = presets()
+        val pill = collapsedPill(ps.size)
+        canvas.drawRoundRect(pill, pillH / 2, pillH / 2, pillPaint)
+        val sel = ZoomMath.selectedIndex(ps, ratio)
+        val cy = pillCenterY()
+        for (i in ps.indices) {
+            val cx = pill.left + 4 * d + itemW * i + itemW / 2
+            if (i == sel) {
+                canvas.drawCircle(cx, cy, circleR, selPaint)
+                canvas.drawText(ZoomMath.format(ratio), cx, cy + textDark.textSize / 3f, textDark)
+            } else {
+                canvas.drawText(ZoomMath.plain(ps[i]), cx, cy + textLight.textSize / 3f, textLight)
+            }
         }
-        val track = RectF(trackLeft(), cy - trackHalfHeight, trackRight(), cy + trackHalfHeight)
-        canvas.drawRoundRect(track, trackHalfHeight, trackHalfHeight, fill)
-        canvas.drawRoundRect(track, trackHalfHeight, trackHalfHeight, stroke)
+    }
+
+    private fun drawRuler(canvas: Canvas) {
+        val pill = expandedPill()
+        canvas.drawRoundRect(pill, pillH / 2, pillH / 2, pillPaint)
+        val cy = pillCenterY()
+        val tickY = cy - 6 * d
+
+        // Labelled (tall) positions: min, 1x, 2x, max (when distinct and in range).
+        val labelled = listOf(minRatio, 1f, 2f, maxRatio)
+            .filter { it in minRatio..maxRatio }
+            .fold(ArrayList<Float>()) { acc, r ->
+                if (acc.none { abs(ZoomMath.fractionFromRatio(it, minRatio, maxRatio) - ZoomMath.fractionFromRatio(r, minRatio, maxRatio)) < 0.06f }) acc.add(r)
+                acc
+            }
+        val labelledFractions = labelled.map { ZoomMath.fractionFromRatio(it, minRatio, maxRatio) }
+
+        val steps = 24
+        for (i in 0..steps) {
+            val f = i / steps.toFloat()
+            if (labelledFractions.any { abs(it - f) < 0.02f }) continue
+            val x = xForFraction(f)
+            canvas.drawLine(x, tickY - 5 * d, x, tickY + 5 * d, tickPaint)
+        }
+        for ((i, r) in labelled.withIndex()) {
+            val x = xForFraction(labelledFractions[i])
+            canvas.drawLine(x, tickY - 9 * d, x, tickY + 9 * d, tickPaint)
+            canvas.drawText(ZoomMath.plain(r), x, cy + 20 * d, labelPaint)
+        }
+
+        // Current position: highlighted tick + bubble.
         val f = ZoomMath.fractionFromRatio(ratio, minRatio, maxRatio)
-        val tx = trackLeft() + f * (trackRight() - trackLeft())
-        // end labels
-        canvas.drawText(ZoomMath.format(minRatio), trackLeft() + 28 * d, cy + textLight.textSize / 3f, textLight)
-        canvas.drawText(ZoomMath.format(maxRatio), trackRight() - 28 * d, cy + textLight.textSize / 3f, textLight)
-        canvas.drawCircle(tx, cy, btnRadius, white)
-        canvas.drawText(ZoomMath.format(ratio), tx, cy + textDark.textSize / 3f, textDark)
+        val tx = xForFraction(f)
+        val thumb = Paint(selPaint).apply { strokeWidth = 5 * d; strokeCap = Paint.Cap.ROUND }
+        canvas.drawLine(tx, tickY - 12 * d, tx, tickY + 12 * d, thumb)
+
+        val bw = 64 * d
+        val bh = 34 * d
+        val bx = tx.coerceIn(pill.left + bw / 2, pill.right - bw / 2)
+        val top = pill.top - 8 * d - bh
+        canvas.drawRoundRect(RectF(bx - bw / 2, top, bx + bw / 2, top + bh), bh / 2, bh / 2, selPaint)
+        canvas.drawText(ZoomMath.format(ratio), bx, top + bh / 2 + textDark.textSize / 3f, textDark)
     }
 }

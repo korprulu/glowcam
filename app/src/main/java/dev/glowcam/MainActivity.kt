@@ -100,11 +100,7 @@ class MainActivity : ComponentActivity() {
         }
         shutter.setOnClickListener { takePhoto() }
         zoomControl = findViewById(R.id.zoom)
-        zoomControl.onTap = {
-            val next = ZoomMath.nextPreset(zoomControl.ratio, zoomControl.minRatio, zoomControl.maxRatio)
-            zoomControl.ratio = next
-            camera?.cameraControl?.setZoomRatio(next)
-        }
+        zoomControl.onSelect = { camera?.cameraControl?.setZoomRatio(it) }
         zoomControl.onRatioChanged = { camera?.cameraControl?.setZoomRatio(it) }
         thumb = findViewById(R.id.thumb)
         thumb.setOnClickListener {

@@ -64,7 +64,7 @@
         <dev.glowcam.ZoomControl
             android:id="@+id/zoom"
             android:layout_width="match_parent"
-            android:layout_height="56dp"
+            android:layout_height="96dp"
             android:layout_marginTop="4dp"
             android:contentDescription="@string/zoom" />
 
