@@ -17,7 +17,9 @@ android {
 
     buildTypes {
         release {
-            isMinifyEnabled = false
+            isMinifyEnabled = true
+            isShrinkResources = true
+            proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
             // Debug keystore keeps the release APK directly installable for now.
             signingConfig = signingConfigs.getByName("debug")
         }
