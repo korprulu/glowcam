@@ -64,4 +64,37 @@ class ZoomMathTest {
         assertEquals("1", ZoomMath.plain(1f))
         assertEquals("2", ZoomMath.plain(2f))
     }
+
+    @Test
+    fun dragReachesBothEndsFromAnywhere() {
+        // thumb at 1/3, finger starts at the centre of a 0..1000 ruler
+        val start = 500f
+        assertEquals(1f / 3f, ZoomMath.dragFraction(500f, start, 1f / 3f, 0f, 1000f), 1e-5f)
+        assertEquals(1f, ZoomMath.dragFraction(1000f, start, 1f / 3f, 0f, 1000f), 1e-5f)
+        assertEquals(0f, ZoomMath.dragFraction(0f, start, 1f / 3f, 0f, 1000f), 1e-5f)
+        // beyond the ends stays clamped
+        assertEquals(1f, ZoomMath.dragFraction(1400f, start, 1f / 3f, 0f, 1000f), 1e-5f)
+        assertEquals(0f, ZoomMath.dragFraction(-50f, start, 1f / 3f, 0f, 1000f), 1e-5f)
+    }
+
+    @Test
+    fun dragIsMonotonicAndContinuousAtTheAnchor() {
+        var prev = -1f
+        for (x in 0..1000 step 50) {
+            val f = ZoomMath.dragFraction(x.toFloat(), 500f, 0.7f, 0f, 1000f)
+            assertEquals(true, f >= prev)
+            prev = f
+        }
+        assertEquals(0.7f, ZoomMath.dragFraction(500f, 500f, 0.7f, 0f, 1000f), 1e-5f)
+        assertEquals(0.7f, ZoomMath.dragFraction(499.9f, 500f, 0.7f, 0f, 1000f), 1e-3f)
+    }
+
+    @Test
+    fun dragDegenerateRoomIsSafe() {
+        // anchor at the right end: nothing to the right to travel into
+        assertEquals(0.4f, ZoomMath.dragFraction(1100f, 1000f, 0.4f, 0f, 1000f), 1e-5f)
+        // moving left from there still scales down toward 0
+        assertEquals(0.36f, ZoomMath.dragFraction(900f, 1000f, 0.4f, 0f, 1000f), 1e-5f)
+        assertEquals(0f, ZoomMath.dragFraction(0f, 1000f, 0.4f, 0f, 1000f), 1e-5f)
+    }
 }

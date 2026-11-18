@@ -57,7 +57,7 @@ class MainActivity : ComponentActivity() {
     private val placeExecutor: ExecutorService = Executors.newSingleThreadExecutor()
 
     @Volatile private var params = BeautyParams()
-    @Volatile private var frontFacing = true
+    @Volatile private var frontFacing = false
     private var imageCapture: ImageCapture? = null
     private var saving = false
     private var camera: androidx.camera.core.Camera? = null

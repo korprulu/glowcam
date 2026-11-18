@@ -18,6 +18,22 @@ object ZoomMath {
         return (kotlin.math.ln(r / min) / kotlin.math.ln(max / min)).coerceIn(0f, 1f)
     }
 
+    /**
+     * Slider fraction for a finger at [x] while dragging. The finger starts at [anchorX] where the thumb
+     * already is ([startFraction]); moving to the left/right end of the ruler reaches 0/1 exactly, so
+     * both ends are reachable however far from them the drag began.
+     */
+    fun dragFraction(x: Float, anchorX: Float, startFraction: Float, left: Float, right: Float): Float {
+        val f0 = startFraction.coerceIn(0f, 1f)
+        return if (x >= anchorX) {
+            val room = right - anchorX
+            if (room <= 0f) f0 else f0 + ((x - anchorX) / room).coerceIn(0f, 1f) * (1f - f0)
+        } else {
+            val room = anchorX - left
+            if (room <= 0f) f0 else f0 - ((anchorX - x) / room).coerceIn(0f, 1f) * f0
+        }
+    }
+
     /** Up to three quick-select buttons: camera minimum (when wider than 1x), 1x, and 2x. */
     fun presets(min: Float, max: Float): List<Float> {
         val out = ArrayList<Float>()

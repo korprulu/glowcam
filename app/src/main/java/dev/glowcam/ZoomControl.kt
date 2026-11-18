@@ -113,8 +113,7 @@ class ZoomControl @JvmOverloads constructor(context: Context, attrs: AttributeSe
                 return true
             }
             MotionEvent.ACTION_MOVE -> if (expanded) {
-                val span = rulerRight() - rulerLeft()
-                val f = (anchorFraction + (e.x - anchorX) / span).coerceIn(0f, 1f)
+                val f = ZoomMath.dragFraction(e.x, anchorX, anchorFraction, rulerLeft(), rulerRight())
                 val r = ZoomMath.ratioFromFraction(f, minRatio, maxRatio)
                 ratio = r
                 onRatioChanged?.invoke(r)
