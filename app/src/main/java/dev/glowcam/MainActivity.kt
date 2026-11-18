@@ -137,6 +137,9 @@ class MainActivity : ComponentActivity() {
         zoomControl = findViewById(R.id.zoom)
         zoomControl.onSelect = { camera?.cameraControl?.setZoomRatio(it) }
         zoomControl.onRatioChanged = { camera?.cameraControl?.setZoomRatio(it) }
+        findViewById<View>(R.id.btn_settings).setOnClickListener {
+            startActivity(android.content.Intent(this, SettingsActivity::class.java))
+        }
         focusRing = findViewById(R.id.focus_ring)
         val taps = GestureDetector(this, object : GestureDetector.SimpleOnGestureListener() {
             override fun onDown(e: MotionEvent) = true

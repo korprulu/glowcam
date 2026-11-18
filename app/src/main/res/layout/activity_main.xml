@@ -103,5 +103,20 @@
                 android:background="@drawable/shutter_bg"
                 android:contentDescription="@string/shutter" />
         </FrameLayout>
+
+        <FrameLayout
+            android:layout_width="match_parent"
+            android:layout_height="56dp"
+            android:layout_marginTop="8dp">
+            <ImageButton
+                android:id="@+id/btn_settings"
+                android:layout_width="52dp"
+                android:layout_height="52dp"
+                android:layout_gravity="center_vertical|start"
+                android:background="@drawable/round_bg"
+                android:contentDescription="@string/settings"
+                android:scaleType="center"
+                android:src="@drawable/ic_settings" />
+        </FrameLayout>
     </LinearLayout>
 </FrameLayout>

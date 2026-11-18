@@ -7,6 +7,9 @@
     <string name="switch_camera">切換鏡頭</string>
     <string name="shutter">拍照</string>
     <string name="gallery">相簿</string>
+    <string name="settings">設定</string>
+    <string name="version">版本</string>
+    <string name="back">返回</string>
     <string name="zoom">縮放</string>
     <string name="focus_unsupported">此鏡頭不支援點擊對焦</string>
     <string name="share">分享</string>
