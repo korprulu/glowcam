@@ -61,6 +61,13 @@
             <SeekBar android:id="@+id/seek_rosy" style="@style/SliderBar" android:progress="20" />
         </LinearLayout>
 
+        <dev.glowcam.ZoomControl
+            android:id="@+id/zoom"
+            android:layout_width="match_parent"
+            android:layout_height="56dp"
+            android:layout_marginTop="4dp"
+            android:contentDescription="@string/zoom" />
+
         <FrameLayout
             android:layout_width="match_parent"
             android:layout_height="88dp"

@@ -49,6 +49,8 @@ class MainActivity : ComponentActivity() {
     @Volatile private var frontFacing = true
     private var imageCapture: ImageCapture? = null
     private var saving = false
+    private var camera: androidx.camera.core.Camera? = null
+    private lateinit var zoomControl: ZoomControl
     private var hasPhotos = false
     private var askedLocation = false
     private val locationLauncher =
@@ -97,6 +99,13 @@ class MainActivity : ComponentActivity() {
             startCamera()
         }
         shutter.setOnClickListener { takePhoto() }
+        zoomControl = findViewById(R.id.zoom)
+        zoomControl.onTap = {
+            val next = ZoomMath.nextPreset(zoomControl.ratio, zoomControl.minRatio, zoomControl.maxRatio)
+            zoomControl.ratio = next
+            camera?.cameraControl?.setZoomRatio(next)
+        }
+        zoomControl.onRatioChanged = { camera?.cameraControl?.setZoomRatio(it) }
         thumb = findViewById(R.id.thumb)
         thumb.setOnClickListener {
             if (hasPhotos) startActivity(android.content.Intent(this, GalleryActivity::class.java))
@@ -205,7 +214,15 @@ class MainActivity : ComponentActivity() {
         imageCapture = capture
 
         provider.unbindAll()
-        provider.bindToLifecycle(this, selector, analysis, capture)
+        camera?.cameraInfo?.zoomState?.removeObservers(this)
+        val cam = provider.bindToLifecycle(this, selector, analysis, capture)
+        camera = cam
+        cam.cameraInfo.zoomState.observe(this) { zs ->
+            zoomControl.minRatio = zs.minZoomRatio
+            zoomControl.maxRatio = zs.maxZoomRatio
+            // Don't fight the user's finger while the slider is open.
+            if (!zoomControl.expanded) zoomControl.ratio = zs.zoomRatio else zoomControl.invalidate()
+        }
     }
 
     private fun analyze(proxy: ImageProxy) {
