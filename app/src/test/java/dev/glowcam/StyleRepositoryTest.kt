@@ -6,8 +6,12 @@ import org.junit.Test
 
 class StyleRepositoryTest {
 
-    private class MemoryStorage(val map: MutableMap<String, String> = HashMap()) : KeyValueStorage {
+    private class MemoryStorage(
+        val map: MutableMap<String, String> = HashMap(),
+        val backups: MutableMap<String, String> = HashMap(),
+    ) : KeyValueStorage {
         override fun getString(key: String) = map[key]
+        override fun getBackupString(key: String) = backups[key]
         override fun putString(key: String, value: String) {
             map[key] = value
         }
@@ -152,5 +156,48 @@ class StyleRepositoryTest {
         assertTrue(d.id != r.state.selected.id)
         assertEquals("新風格", d.name)
         assertEquals(1, r.state.styles.size) // not persisted until saved
+    }
+
+    @Test
+    fun brokenMainDataIsRestoredFromTheBackupCopy() {
+        val good = MemoryStorage()
+        val r = repo(good)
+        r.save(r.draft(r.state.selected).copy(name = "寵物"))
+        val goodJson = good.map["styles_v1"]!!
+
+        val storage = MemoryStorage(hashMapOf("styles_v1" to "{broken"), hashMapOf("styles_v1" to goodJson))
+        val restored = repo(storage).state
+        assertEquals(listOf("人像", "寵物"), restored.styles.map { it.name })
+        assertEquals(goodJson, storage.map["styles_v1"]) // main copy repaired
+    }
+
+    @Test
+    fun missingMainDataIsRestoredFromTheBackupCopy() {
+        val good = MemoryStorage()
+        val r = repo(good)
+        r.save(r.draft(r.state.selected).copy(name = "寵物"))
+        val storage = MemoryStorage(hashMapOf(), hashMapOf("styles_v1" to good.map["styles_v1"]!!))
+        assertEquals("寵物", repo(storage).state.selected.name)
+    }
+
+    @Test
+    fun dataFromANewerSchemaIsReadButNeverOverwritten() {
+        val newer = """{"version":99,"selected":"a","styles":[{"id":"a","name":"未來","values":{"smooth":0.5,"hologram":1.0}}],"future":{"x":1}}"""
+        val storage = MemoryStorage(hashMapOf("styles_v1" to newer))
+        val r = repo(storage)
+        assertEquals("未來", r.state.selected.name)
+        assertEquals(1f, r.state.selected.value("hologram"), 0f)
+        assertTrue(r.readOnly)
+        r.save(r.state.selected.copy(name = "改"))
+        r.select("a")
+        assertEquals(newer, storage.map["styles_v1"]) // untouched on disk
+    }
+
+    @Test
+    fun olderSchemaWithoutVersionFieldStillLoads() {
+        val old = """{"selected":"a","styles":[{"id":"a","name":"舊","values":{"smooth":0.2}}]}"""
+        val r = repo(MemoryStorage(hashMapOf("styles_v1" to old)))
+        assertEquals("舊", r.state.selected.name)
+        assertEquals(false, r.readOnly)
     }
 }

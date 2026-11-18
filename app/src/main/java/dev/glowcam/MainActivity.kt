@@ -115,7 +115,12 @@ class MainActivity : ComponentActivity() {
             insets
         }
 
-        styles = StyleController(this, StyleRepository(PrefsStorage(getSharedPreferences("glowcam", MODE_PRIVATE)))) { p ->
+        styles = StyleController(this, StyleRepository(
+            MigratingStorage(
+                FileStorage(java.io.File(filesDir, "settings")),
+                PrefsStorage(getSharedPreferences("glowcam", MODE_PRIVATE)), // where 1.8.0 kept the styles
+            ),
+        )) { p ->
             params = p
             previewView.params = p
             previewView.requestRender()

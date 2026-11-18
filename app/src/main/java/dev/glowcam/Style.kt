@@ -44,6 +44,9 @@ object DefaultStyles {
 interface KeyValueStorage {
     fun getString(key: String): String?
     fun putString(key: String, value: String)
+
+    /** The previous version of the value, if the storage keeps one. */
+    fun getBackupString(key: String): String? = null
 }
 
 data class StyleState(val styles: List<Style>, val selectedId: String) {
@@ -55,13 +58,25 @@ class StyleRepository(
     private val storage: KeyValueStorage,
     private val newId: () -> String = { UUID.randomUUID().toString() },
 ) {
+    /**
+     * True when the stored data was written by a newer app version (after a downgrade). It is still
+     * read, but never written back, so the newer data is not damaged.
+     */
+    var readOnly = false
+        private set
+
     var state: StyleState = load()
         private set
 
     private fun load(): StyleState {
         val raw = storage.getString(KEY)
-        val parsed = raw?.let { parse(it) }
-        if (parsed != null) return parsed
+        parse(raw)?.let { return it }
+        // Main data missing or unreadable: fall back to the previous version of it before giving up.
+        val backupRaw = storage.getBackupString(KEY)
+        parse(backupRaw)?.let { restored ->
+            persist(restored)
+            return restored
+        }
         // Stored data that cannot be read is kept aside instead of being silently overwritten.
         if (raw != null) storage.putString(KEY_UNREADABLE, raw)
         val seeded = StyleState(listOf(DefaultStyles.portrait()), DefaultStyles.PORTRAIT_ID)
@@ -100,32 +115,44 @@ class StyleRepository(
     }
 
     private fun persist(s: StyleState) {
+        if (readOnly) return
         val arr = JSONArray()
         for (st in s.styles) {
             val vals = JSONObject()
             for ((k, v) in st.values) vals.put(k, v.toDouble())
             arr.put(JSONObject().put("id", st.id).put("name", st.name).put("values", vals))
         }
-        storage.putString(KEY, JSONObject().put("version", 1).put("selected", s.selectedId).put("styles", arr).toString())
+        storage.putString(KEY, JSONObject().put("version", SCHEMA_VERSION).put("selected", s.selectedId).put("styles", arr).toString())
     }
 
-    private fun parse(text: String): StyleState? = try {
-        val root = JSONObject(text)
-        val arr = root.getJSONArray("styles")
-        val styles = (0 until arr.length()).map { i ->
-            val o = arr.getJSONObject(i)
-            val v = o.optJSONObject("values") ?: JSONObject()
-            val map = LinkedHashMap<String, Float>()
-            for (k in v.keys()) map[k] = v.getDouble(k).toFloat()
-            Style(o.getString("id"), o.getString("name"), map)
+    /**
+     * Reads any schema up to [SCHEMA_VERSION]. Unknown keys and unknown extra fields are ignored,
+     * never treated as an error; only genuinely malformed data returns null.
+     */
+    private fun parse(text: String?): StyleState? {
+        if (text == null) return null
+        return try {
+            val root = JSONObject(text)
+            val version = root.optInt("version", 1)
+            val arr = root.getJSONArray("styles")
+            val styles = (0 until arr.length()).map { i ->
+                val o = arr.getJSONObject(i)
+                val v = o.optJSONObject("values") ?: JSONObject()
+                val map = LinkedHashMap<String, Float>()
+                for (k in v.keys()) map[k] = v.getDouble(k).toFloat()
+                Style(o.getString("id"), o.getString("name"), map)
+            }
+            if (styles.isEmpty()) return null
+            if (version > SCHEMA_VERSION) readOnly = true
+            StyleState(styles, root.optString("selected"))
+        } catch (e: JSONException) {
+            null
         }
-        if (styles.isEmpty()) null else StyleState(styles, root.optString("selected"))
-    } catch (e: JSONException) {
-        null
     }
 
     companion object {
         private const val KEY = "styles_v1"
+        const val SCHEMA_VERSION = 1
         const val KEY_UNREADABLE = "styles_v1_unreadable"
         const val DEFAULT_NAME = "風格"
         const val NEW_NAME = "新風格"
