@@ -82,7 +82,7 @@ class ZoomControl @JvmOverloads constructor(context: Context, attrs: AttributeSe
     private fun pillCenterY() = height - bottomGap - pillH / 2f
 
     private fun collapsedPill(n: Int): RectF {
-        val w = n * itemW + 8 * d
+        val w = n * itemW // no side padding: the selected circle then sits 2dp from every pill edge
         val cx = width / 2f
         val cy = pillCenterY()
         return RectF(cx - w / 2, cy - pillH / 2, cx + w / 2, cy + pillH / 2)
@@ -108,7 +108,7 @@ class ZoomControl @JvmOverloads constructor(context: Context, attrs: AttributeSe
                 if (!pill.contains(e.x, e.y)) return false
                 downInside = true
                 longPressed = false
-                downItem = ((e.x - (pill.left + 4 * d)) / itemW).toInt().coerceIn(0, ps.size - 1)
+                downItem = ((e.x - pill.left) / itemW).toInt().coerceIn(0, ps.size - 1)
                 postDelayed(longPress, ViewConfiguration.getLongPressTimeout().toLong())
                 return true
             }
@@ -161,7 +161,7 @@ class ZoomControl @JvmOverloads constructor(context: Context, attrs: AttributeSe
         val sel = ZoomMath.selectedIndex(ps, ratio)
         val cy = pillCenterY()
         for (i in ps.indices) {
-            val cx = pill.left + 4 * d + itemW * i + itemW / 2
+            val cx = pill.left + itemW * i + itemW / 2
             if (i == sel) {
                 canvas.drawCircle(cx, cy, circleR, selPaint)
                 canvas.drawText(ZoomMath.format(ratio), cx, cy + textDark.textSize / 3f, textDark)
