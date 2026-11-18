@@ -9,8 +9,8 @@ import java.util.Date
 object PhotoInfo {
 
     /**
-     * - date and place  -> `11/19 下午2:32・台北市 信義區`
-     * - date only       -> `11/19 下午2:32`
+     * - date and place  -> `11月19日 下午2:32・台北市 信義區`
+     * - date only       -> `11月19日 下午2:32`
      * - no date         -> empty (nothing is shown, even when a place exists)
      *
      * [dateFormat] and [timeFormat] come from the system (locale, 12/24-hour setting).
