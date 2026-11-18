@@ -52,24 +52,24 @@
         android:orientation="vertical"
         android:padding="16dp">
 
-        <LinearLayout style="@style/SliderRow">
-            <TextView style="@style/SliderLabel" android:text="@string/smooth" />
-            <SeekBar android:id="@+id/seek_smooth" style="@style/SliderBar" android:progress="60" />
-        </LinearLayout>
-        <LinearLayout style="@style/SliderRow">
-            <TextView style="@style/SliderLabel" android:text="@string/whiten" />
-            <SeekBar android:id="@+id/seek_whiten" style="@style/SliderBar" android:progress="30" />
-        </LinearLayout>
-        <LinearLayout style="@style/SliderRow">
-            <TextView style="@style/SliderLabel" android:text="@string/rosy" />
-            <SeekBar android:id="@+id/seek_rosy" style="@style/SliderBar" android:progress="20" />
-        </LinearLayout>
+        <HorizontalScrollView
+            android:id="@+id/style_strip"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginBottom="8dp"
+            android:scrollbars="none"
+            android:visibility="gone">
+            <LinearLayout
+                android:id="@+id/style_list"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal" />
+        </HorizontalScrollView>
 
         <dev.glowcam.ZoomControl
             android:id="@+id/zoom"
             android:layout_width="match_parent"
             android:layout_height="96dp"
-            android:layout_marginTop="4dp"
             android:contentDescription="@string/zoom" />
 
         <FrameLayout
@@ -117,6 +117,88 @@
                 android:contentDescription="@string/settings"
                 android:scaleType="center"
                 android:src="@drawable/ic_settings" />
+            <TextView
+                android:id="@+id/style_name"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_gravity="center"
+                android:ellipsize="end"
+                android:maxWidth="160dp"
+                android:singleLine="true"
+                android:textColor="@android:color/white"
+                android:textSize="16sp" />
+            <ImageButton
+                android:id="@+id/btn_style"
+                android:layout_width="52dp"
+                android:layout_height="52dp"
+                android:layout_gravity="center_vertical|end"
+                android:background="@drawable/round_bg"
+                android:contentDescription="@string/style"
+                android:scaleType="center"
+                android:src="@drawable/ic_style" />
         </FrameLayout>
+    </LinearLayout>
+
+    <LinearLayout
+        android:id="@+id/style_editor"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_gravity="bottom"
+        android:background="#E61C1B1B"
+        android:orientation="vertical"
+        android:padding="16dp"
+        android:visibility="gone">
+
+        <TextView
+            android:id="@+id/editor_name"
+            android:layout_width="match_parent"
+            android:layout_height="48dp"
+            android:contentDescription="@string/rename"
+            android:drawableEnd="@drawable/ic_edit"
+            android:gravity="center_vertical"
+            android:singleLine="true"
+            android:textColor="@android:color/white"
+            android:textSize="18sp" />
+
+        <LinearLayout style="@style/SliderRow">
+            <TextView style="@style/SliderLabel" android:text="@string/smooth" />
+            <SeekBar android:id="@+id/seek_smooth" style="@style/SliderBar" />
+        </LinearLayout>
+        <LinearLayout style="@style/SliderRow">
+            <TextView style="@style/SliderLabel" android:text="@string/whiten" />
+            <SeekBar android:id="@+id/seek_whiten" style="@style/SliderBar" />
+        </LinearLayout>
+        <LinearLayout style="@style/SliderRow">
+            <TextView style="@style/SliderLabel" android:text="@string/rosy" />
+            <SeekBar android:id="@+id/seek_rosy" style="@style/SliderBar" />
+        </LinearLayout>
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:gravity="center_vertical"
+            android:orientation="horizontal">
+            <Button
+                android:id="@+id/btn_editor_delete"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="@string/delete"
+                android:textColor="#FF6B6B" />
+            <View
+                android:layout_width="0dp"
+                android:layout_height="1dp"
+                android:layout_weight="1" />
+            <Button
+                android:id="@+id/btn_editor_cancel"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="@string/cancel" />
+            <Button
+                android:id="@+id/btn_editor_save"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="@string/save" />
+        </LinearLayout>
     </LinearLayout>
 </FrameLayout>

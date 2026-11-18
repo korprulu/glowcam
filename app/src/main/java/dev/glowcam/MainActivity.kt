@@ -21,7 +21,6 @@ import android.view.MotionEvent
 import android.view.View
 import android.widget.ImageButton
 import android.widget.ImageView
-import android.widget.SeekBar
 import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.result.contract.ActivityResultContracts
@@ -51,9 +50,7 @@ class MainActivity : ComponentActivity() {
     private lateinit var previewView: GlPreviewView
     private lateinit var shutter: ImageButton
     private lateinit var permissionPanel: View
-    private lateinit var seekSmooth: SeekBar
-    private lateinit var seekWhiten: SeekBar
-    private lateinit var seekRosy: SeekBar
+    private lateinit var styles: StyleController
 
     private val analysisExecutor: ExecutorService = Executors.newSingleThreadExecutor()
     private val captureExecutor: ExecutorService = Executors.newSingleThreadExecutor()
@@ -102,31 +99,35 @@ class MainActivity : ComponentActivity() {
         previewView.onGlError = { Toast.makeText(this, R.string.camera_failed, Toast.LENGTH_LONG).show() }
         shutter = findViewById(R.id.btn_shutter)
         permissionPanel = findViewById(R.id.permission_panel)
-        seekSmooth = findViewById(R.id.seek_smooth)
-        seekWhiten = findViewById(R.id.seek_whiten)
-        seekRosy = findViewById(R.id.seek_rosy)
 
         val controls = findViewById<View>(R.id.controls)
+        val editor = findViewById<View>(R.id.style_editor)
         ViewCompat.setOnApplyWindowInsetsListener(findViewById(R.id.root)) { _, insets ->
             val bars = insets.getInsets(WindowInsetsCompat.Type.systemBars())
             previewView.topInset = bars.top.toFloat()
             previewView.requestRender()
-            controls.setPadding(
-                controls.paddingLeft, controls.paddingTop, controls.paddingRight,
-                bars.bottom + (16 * resources.displayMetrics.density).toInt(),
-            )
+            for (panel in listOf(controls, editor)) {
+                panel.setPadding(
+                    panel.paddingLeft, panel.paddingTop, panel.paddingRight,
+                    bars.bottom + (16 * resources.displayMetrics.density).toInt(),
+                )
+            }
             insets
         }
 
-        val listener = object : SeekBar.OnSeekBarChangeListener {
-            override fun onProgressChanged(sb: SeekBar?, progress: Int, fromUser: Boolean) = updateParams()
-            override fun onStartTrackingTouch(sb: SeekBar?) = Unit
-            override fun onStopTrackingTouch(sb: SeekBar?) = Unit
+        styles = StyleController(this, StyleRepository(PrefsStorage(getSharedPreferences("glowcam", MODE_PRIVATE)))) { p ->
+            params = p
+            previewView.params = p
+            previewView.requestRender()
         }
-        seekSmooth.setOnSeekBarChangeListener(listener)
-        seekWhiten.setOnSeekBarChangeListener(listener)
-        seekRosy.setOnSeekBarChangeListener(listener)
-        updateParams()
+        onBackPressedDispatcher.addCallback(this, object : androidx.activity.OnBackPressedCallback(true) {
+            override fun handleOnBackPressed() {
+                if (!styles.closeIfOpen()) {
+                    isEnabled = false
+                    onBackPressedDispatcher.onBackPressed()
+                }
+            }
+        })
 
         findViewById<View>(R.id.grant).setOnClickListener { permissionLauncher.launch(Manifest.permission.CAMERA) }
         findViewById<View>(R.id.btn_switch).setOnClickListener {
@@ -188,12 +189,6 @@ class MainActivity : ComponentActivity() {
         analysisExecutor.shutdown()
         captureExecutor.shutdown()
         placeExecutor.shutdown()
-    }
-
-    private fun updateParams() {
-        params = BeautyParams.fromProgress(seekSmooth.progress, seekWhiten.progress, seekRosy.progress)
-        previewView.params = params
-        previewView.requestRender()
     }
 
     private fun hasCameraPermission() =

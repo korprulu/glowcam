@@ -8,6 +8,13 @@
     <string name="shutter">拍照</string>
     <string name="gallery">相簿</string>
     <string name="settings">設定</string>
+    <string name="style">風格</string>
+    <string name="add_style">＋ 新增</string>
+    <string name="rename">重新命名</string>
+    <string name="style_name_title">風格名稱</string>
+    <string name="cancel">取消</string>
+    <string name="save">儲存</string>
+    <string name="delete_style_title">刪除這個風格？</string>
     <string name="version">版本</string>
     <string name="back">返回</string>
     <string name="zoom">縮放</string>

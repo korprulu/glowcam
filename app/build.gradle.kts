@@ -10,8 +10,8 @@ android {
         applicationId = "dev.glowcam"
         minSdk = 37          // Android 17
         targetSdk = 37
-        versionCode = 12
-        versionName = "1.7.0"
+        versionCode = 13
+        versionName = "1.8.0"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
@@ -41,6 +41,7 @@ dependencies {
     implementation("androidx.camera:camera-lifecycle:$camerax")
 
     testImplementation("junit:junit:4.13.2")
+    testImplementation("org.json:json:20240303") // JVM copy of org.json (android.jar only has stubs)
     androidTestImplementation("androidx.test.ext:junit:1.3.0")
     androidTestImplementation("androidx.test:runner:1.7.0")
     androidTestImplementation("androidx.test:rules:1.7.0")
