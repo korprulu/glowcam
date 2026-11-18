@@ -58,11 +58,20 @@
             android:layout_width="match_parent"
             android:layout_height="88dp"
             android:layout_marginTop="8dp">
+            <ImageView
+                android:id="@+id/thumb"
+                android:layout_width="60dp"
+                android:layout_height="60dp"
+                android:layout_gravity="center_vertical|start"
+                android:background="@drawable/thumb_bg"
+                android:clipToOutline="true"
+                android:contentDescription="@string/gallery"
+                android:scaleType="centerCrop" />
             <Button
                 android:id="@+id/btn_switch"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:layout_gravity="center_vertical|start"
+                android:layout_gravity="center_vertical|end"
                 android:text="@string/switch_camera" />
             <ImageButton
                 android:id="@+id/btn_shutter"

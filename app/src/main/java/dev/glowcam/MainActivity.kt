@@ -48,6 +48,8 @@ class MainActivity : ComponentActivity() {
     @Volatile private var frontFacing = true
     private var imageCapture: ImageCapture? = null
     private var saving = false
+    private var hasPhotos = false
+    private lateinit var thumb: ImageView
 
     private val permissionLauncher =
         registerForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
@@ -91,8 +93,29 @@ class MainActivity : ComponentActivity() {
             startCamera()
         }
         shutter.setOnClickListener { takePhoto() }
+        thumb = findViewById(R.id.thumb)
+        thumb.setOnClickListener {
+            if (hasPhotos) startActivity(android.content.Intent(this, GalleryActivity::class.java))
+        }
 
         if (hasCameraPermission()) startCamera() else permissionLauncher.launch(Manifest.permission.CAMERA)
+    }
+
+    override fun onResume() {
+        super.onResume()
+        refreshThumbnail()
+    }
+
+    private fun refreshThumbnail() {
+        val size = (120 * resources.displayMetrics.density).toInt()
+        captureExecutor.execute {
+            val latest = PhotoStore.list(this).firstOrNull()
+            val bmp = latest?.let { PhotoStore.thumbnail(this, it, size) }
+            runOnUiThread {
+                hasPhotos = bmp != null
+                thumb.setImageBitmap(bmp)
+            }
+        }
     }
 
     override fun onDestroy() {
@@ -212,6 +235,7 @@ class MainActivity : ComponentActivity() {
                         if (ok) R.string.saved else R.string.save_failed,
                         Toast.LENGTH_SHORT,
                     ).show()
+                    if (ok) refreshThumbnail()
                 }
             }
 

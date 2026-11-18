@@ -34,6 +34,8 @@ dependencies {
     val camerax = "1.6.2"
     implementation("androidx.core:core-ktx:1.19.1")
     implementation("androidx.activity:activity:1.13.0")
+    implementation("androidx.viewpager2:viewpager2:1.1.0")
+    implementation("androidx.fragment:fragment:1.9.1")
     implementation("androidx.camera:camera-core:$camerax")
     implementation("androidx.camera:camera-camera2:$camerax")
     implementation("androidx.camera:camera-lifecycle:$camerax")
