@@ -44,6 +44,13 @@ class GlPreviewView @JvmOverloads constructor(context: Context, attrs: Attribute
         renderMode = RENDERMODE_WHEN_DIRTY
     }
 
+    private fun displayRotationDegrees(): Int = when (display?.rotation) {
+        Surface.ROTATION_90 -> 90
+        Surface.ROTATION_180 -> 180
+        Surface.ROTATION_270 -> 270
+        else -> 0
+    }
+
     private inner class PreviewRenderer : Renderer {
         private val lock = Any()
         private val direct = Executor { it.run() }
@@ -67,7 +74,10 @@ class GlPreviewView @JvmOverloads constructor(context: Context, attrs: Attribute
         private var hasFrame = false
         private val frameAvailable = AtomicBoolean(false)
         private val texMat = FloatArray(16)
-        @Volatile private var rotation = 0
+        /** Rotation applied in the shader (the camera orientation itself is already in the SurfaceTexture matrix). */
+        @Volatile private var shaderRotation = 0
+        /** Full sensor-to-display rotation; decides whether the upright frame is portrait or landscape. */
+        @Volatile private var fullRotation = 0
         @Volatile private var bufW = 1
         @Volatile private var bufH = 1
         private var viewW = 1
@@ -93,7 +103,12 @@ class GlPreviewView @JvmOverloads constructor(context: Context, attrs: Attribute
             bufW = size.width
             bufH = size.height
             val surface = Surface(s)
-            req.setTransformationInfoListener(direct) { info -> rotation = info.rotationDegrees }
+            req.setTransformationInfoListener(direct) { info ->
+                fullRotation = info.rotationDegrees
+                // A surface fed directly by the camera carries the sensor orientation in its transform
+                // matrix, so only the display rotation is left to apply (see hasCameraTransform()).
+                shaderRotation = if (info.hasCameraTransform()) displayRotationDegrees() else info.rotationDegrees
+            }
             req.provideSurface(surface, direct) { surface.release() }
         }
 
@@ -165,8 +180,8 @@ class GlPreviewView @JvmOverloads constructor(context: Context, attrs: Attribute
             }
             if (!hasFrame) return
 
-            val rot = rotation
-            val (fw, fh) = PreviewTransform.displaySize(bufW, bufH, rot)
+            val rot = shaderRotation
+            val (fw, fh) = PreviewTransform.displaySize(bufW, bufH, fullRotation)
             val (sx, sy) = PreviewTransform.cropScale(viewW.toFloat(), viewH.toFloat(), fw.toFloat(), fh.toFloat())
             val p = params.clamped()
 
