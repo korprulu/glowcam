@@ -248,7 +248,7 @@ class MainActivity : ComponentActivity() {
             )
             .setTargetRotation(rotation)
             .build()
-        previewView.mirror = frontFacing
+        previewView.mirror = frontFacing && MIRROR_FRONT
         preview.setSurfaceProvider(previewView.surfaceProvider)
 
         // Low-resolution frames are only used to follow the tap-to-focus point.
@@ -314,7 +314,7 @@ class MainActivity : ComponentActivity() {
             var px = Pixels.fromRgba(bytes, plane.rowStride, proxy.width, proxy.height)
             proxy.close()
             px = px.rotated(rot)
-            if (frontFacing) px = px.mirrored()
+            if (frontFacing && MIRROR_FRONT) px = px.mirrored()
             trackFocus(px)
         } catch (e: Exception) {
             Log.e(TAG, "analyze failed", e)
@@ -378,7 +378,7 @@ class MainActivity : ComponentActivity() {
         val fh = frameH
         if (fw == 0 || fh == 0) return null
         val point = DisplayOrientedMeteringPointFactory(d, cam.cameraInfo, fw.toFloat(), fh.toFloat())
-            .createPoint(nx * fw, ny * fh)
+            .createPoint(if (frontFacing && !MIRROR_FRONT) (1f - nx) * fw else nx * fw, ny * fh) // the factory assumes a mirrored front preview
         return FocusMeteringAction.Builder(point, FocusMeteringAction.FLAG_AF or FocusMeteringAction.FLAG_AE)
             .disableAutoCancel() // keep the custom point until we cancel it ourselves
             .build()
@@ -480,7 +480,7 @@ class MainActivity : ComponentActivity() {
         saving = true
         shutter.isEnabled = false
         val beauty = params
-        val mirror = frontFacing
+        val mirror = frontFacing && MIRROR_FRONT
         val takenAt = System.currentTimeMillis()
         val placeFuture = placeExecutor.submit<String?> { PlaceResolver.resolve(applicationContext) }
         capture.takePicture(captureExecutor, object : ImageCapture.OnImageCapturedCallback() {
@@ -572,6 +572,9 @@ class MainActivity : ComponentActivity() {
 
     private companion object {
         const val TAG = "GlowCam"
+
+        /** Front camera shows (and saves) the picture as others see it, not as a mirror. */
+        const val MIRROR_FRONT = false
         const val MAX_SAVE_SIDE = 2400
     }
 }
