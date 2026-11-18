@@ -36,6 +36,16 @@ class FocusRing @JvmOverloads constructor(context: Context, attrs: AttributeSet?
         }
     }
 
+    /** null = searching (white), true = focus locked (green), false = could not focus (red). */
+    fun setResult(success: Boolean?) {
+        paint.color = when (success) {
+            true -> 0xFF7CFC9A.toInt()
+            false -> 0xFFFF6B6B.toInt()
+            null -> 0xFFFFFFFF.toInt()
+        }
+        invalidate()
+    }
+
     fun hide() {
         if (!shown) return
         shown = false

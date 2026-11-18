@@ -112,10 +112,12 @@ class FocusTracker(
     private val search: Int = 32,
     private val maxScore: Float = 30f,
     private val edgeMargin: Int = 6,
+    private val maxMisses: Int = 3,
 ) {
     private var template: IntArray? = null
     private var cx = 0
     private var cy = 0
+    private var misses = 0
 
     val active: Boolean get() = template != null
 
@@ -123,6 +125,7 @@ class FocusTracker(
         cx = x.coerceIn(0, w - 1)
         cy = y.coerceIn(0, h - 1)
         template = extract(gray, w, h, cx, cy)
+        misses = 0
     }
 
     fun stop() {
@@ -161,10 +164,20 @@ class FocusTracker(
         }
         val score = best.toFloat() / n
         val outOfFrame = bx < edgeMargin || bx >= w - edgeMargin || by < edgeMargin || by >= h - edgeMargin
-        if (score > maxScore || outOfFrame) {
+        if (outOfFrame) {
             template = null
             return null
         }
+        if (score > maxScore) {
+            // Tolerate a few bad frames (blur, hand shake) before giving up.
+            misses++
+            if (misses >= maxMisses) {
+                template = null
+                return null
+            }
+            return cx to cy
+        }
+        misses = 0
         if (score < maxScore / 3f) template = extract(gray, w, h, bx, by) // follow gradual appearance changes
         cx = bx
         cy = by

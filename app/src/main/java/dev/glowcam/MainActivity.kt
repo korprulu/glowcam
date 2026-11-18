@@ -383,6 +383,20 @@ class MainActivity : ComponentActivity() {
             .build()
     }
 
+    /** Starts focus metering and colours the ring by the outcome (green = locked, red = failed). */
+    private fun startFocus(action: FocusMeteringAction) {
+        val future = camera?.cameraControl?.startFocusAndMetering(action) ?: return
+        future.addListener({
+            try {
+                val ok = future.get().isFocusSuccessful
+                Log.i(TAG, "focus result: success=$ok")
+                if (focus.custom) focusRing.setResult(ok)
+            } catch (e: Exception) {
+                Log.w(TAG, "focus request cancelled or failed", e)
+            }
+        }, ContextCompat.getMainExecutor(this))
+    }
+
     private fun onTapToFocus(x: Float, y: Float) {
         val fw = frameW
         val fh = frameH
@@ -391,8 +405,13 @@ class MainActivity : ComponentActivity() {
             x, y, previewView.width.toFloat(), previewView.height.toFloat(), fw.toFloat(), fh.toFloat(),
         )
         val action = meteringAction(nx, ny) ?: return
-        if (camera?.cameraInfo?.isFocusMeteringSupported(action) != true) return
-        camera?.cameraControl?.startFocusAndMetering(action)
+        if (camera?.cameraInfo?.isFocusMeteringSupported(action) != true) {
+            Log.w(TAG, "focus metering not supported by this camera")
+            Toast.makeText(this, R.string.focus_unsupported, Toast.LENGTH_SHORT).show()
+            return
+        }
+        focusRing.setResult(null)
+        startFocus(action)
         lastSentX = nx
         lastSentY = ny
         lastSentAt = SystemClock.uptimeMillis()
@@ -436,7 +455,7 @@ class MainActivity : ComponentActivity() {
         val now = SystemClock.uptimeMillis()
         val moved = kotlin.math.abs(nx - lastSentX) + kotlin.math.abs(ny - lastSentY)
         if (moved > 0.06f && now - lastSentAt > 400) {
-            meteringAction(nx, ny)?.let { camera?.cameraControl?.startFocusAndMetering(it) }
+            meteringAction(nx, ny)?.let { startFocus(it) }
             lastSentX = nx
             lastSentY = ny
             lastSentAt = now

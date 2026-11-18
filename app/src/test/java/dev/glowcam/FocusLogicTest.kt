@@ -116,7 +116,12 @@ class FocusLogicTest {
         val w = 160; val h = 200
         val t = FocusTracker()
         t.start(noise(w, h, 1), w, h, 80, 100)
-        assertNull(t.update(noise(w, h, 2), w, h))
+        // A couple of bad frames are tolerated (point stays where it was) ...
+        assertEquals(80 to 100, t.update(noise(w, h, 2), w, h))
+        assertEquals(80 to 100, t.update(noise(w, h, 3), w, h))
+        assertTrue(t.active)
+        // ... the third in a row loses it.
+        assertNull(t.update(noise(w, h, 5), w, h))
         assertFalse(t.active)
     }
 
@@ -137,7 +142,24 @@ class FocusLogicTest {
         val a = noise(w, h, 4)
         val t = FocusTracker()
         t.start(a, w, h, 60, 100)
-        assertNull(t.update(shift(a, w, h, 50, 0), w, h))
+        val moved = shift(a, w, h, 50, 0)
+        t.update(moved, w, h)
+        t.update(moved, w, h)
+        assertNull(t.update(moved, w, h))
+    }
+
+    @Test
+    fun goodFrameResetsMissCount() {
+        val w = 160; val h = 200
+        val a = noise(w, h, 1)
+        val t = FocusTracker()
+        t.start(a, w, h, 80, 100)
+        t.update(noise(w, h, 2), w, h)
+        t.update(noise(w, h, 3), w, h)
+        assertNotNull(t.update(a, w, h)) // matches again
+        t.update(noise(w, h, 4), w, h)
+        t.update(noise(w, h, 5), w, h)
+        assertTrue(t.active)
     }
 
     @Test

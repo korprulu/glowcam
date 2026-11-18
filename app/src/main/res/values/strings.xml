@@ -8,6 +8,7 @@
     <string name="shutter">拍照</string>
     <string name="gallery">相簿</string>
     <string name="zoom">縮放</string>
+    <string name="focus_unsupported">此鏡頭不支援點擊對焦</string>
     <string name="share">分享</string>
     <string name="delete">刪除</string>
     <string name="delete_failed">無法刪除</string>
