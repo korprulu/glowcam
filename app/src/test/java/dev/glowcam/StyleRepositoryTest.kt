@@ -113,6 +113,22 @@ class StyleRepositoryTest {
     }
 
     @Test
+    fun unreadableStoredDataIsKeptAside() {
+        val storage = MemoryStorage(hashMapOf("styles_v1" to "{not json"))
+        repo(storage)
+        assertEquals("{not json", storage.map["styles_v1_unreadable"])
+    }
+
+    @Test
+    fun readableStoredDataIsNeverCopiedAside() {
+        val storage = MemoryStorage()
+        val r = repo(storage)
+        r.save(r.draft(r.state.selected))
+        repo(storage)
+        assertEquals(null, storage.map["styles_v1_unreadable"])
+    }
+
+    @Test
     fun unknownSelectedIdFallsBackToFirstStyle() {
         val storage = MemoryStorage()
         val r = repo(storage)

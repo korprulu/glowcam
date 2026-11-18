@@ -59,8 +59,11 @@ class StyleRepository(
         private set
 
     private fun load(): StyleState {
-        val parsed = storage.getString(KEY)?.let { parse(it) }
+        val raw = storage.getString(KEY)
+        val parsed = raw?.let { parse(it) }
         if (parsed != null) return parsed
+        // Stored data that cannot be read is kept aside instead of being silently overwritten.
+        if (raw != null) storage.putString(KEY_UNREADABLE, raw)
         val seeded = StyleState(listOf(DefaultStyles.portrait()), DefaultStyles.PORTRAIT_ID)
         persist(seeded)
         return seeded
@@ -123,6 +126,7 @@ class StyleRepository(
 
     companion object {
         private const val KEY = "styles_v1"
+        const val KEY_UNREADABLE = "styles_v1_unreadable"
         const val DEFAULT_NAME = "風格"
         const val NEW_NAME = "新風格"
 
