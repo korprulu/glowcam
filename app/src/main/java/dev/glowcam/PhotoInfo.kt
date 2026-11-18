@@ -9,7 +9,7 @@ import java.util.Date
 object PhotoInfo {
 
     /**
-     * - date and place  -> `11月19日 下午2:32・台北市 信義區`
+     * - date and place  -> `11月19日 下午2:32・台北市`
      * - date only       -> `11月19日 下午2:32`
      * - no date         -> empty (nothing is shown, even when a place exists)
      *
@@ -29,9 +29,17 @@ object PhotoInfo {
         return Instant.ofEpochMilli(takenMillis).atZone(zone).year != Instant.ofEpochMilli(nowMillis).atZone(zone).year
     }
 
-    /** Short place label from geocoder address parts: city, then district, no duplicates. */
-    fun placeName(city: String?, district: String?): String? {
-        val parts = listOf(city, district).mapNotNull { it?.trim()?.takeIf(String::isNotEmpty) }.distinct()
-        return parts.joinToString(" ").ifEmpty { null }
+    private val DISTRICT_SUFFIXES = listOf("區", "区", " District", " Ward", "-ku")
+
+    private fun looksLikeDistrict(name: String) = DISTRICT_SUFFIXES.any { name.endsWith(it, ignoreCase = true) }
+
+    /**
+     * Place label from geocoder address levels, [candidates] ordered most to least preferred
+     * (city, county, province ...). Never goes below city: a candidate that looks like a district
+     * is skipped when a better one exists.
+     */
+    fun cityName(candidates: List<String?>): String? {
+        val names = candidates.mapNotNull { it?.trim()?.takeIf(String::isNotEmpty) }
+        return names.firstOrNull { !looksLikeDistrict(it) } ?: names.firstOrNull()
     }
 }

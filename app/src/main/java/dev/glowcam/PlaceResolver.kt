@@ -53,7 +53,7 @@ object PlaceResolver {
             override fun onGeocode(addresses: MutableList<android.location.Address>) {
                 val a = addresses.firstOrNull()
                 if (a != null) {
-                    name = PhotoInfo.placeName(a.locality ?: a.subAdminArea ?: a.adminArea, a.subLocality)
+                    name = PhotoInfo.cityName(listOf(a.locality, a.subAdminArea, a.adminArea))
                 }
                 latch.countDown()
             }

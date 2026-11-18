@@ -23,7 +23,7 @@ class PhotoInfoTest {
 
     @Test
     fun dateTimeAndPlace() =
-        assertEquals("5/7 14:32・台北市 信義區", PhotoInfo.caption(millis, "台北市 信義區", date, time24))
+        assertEquals("5/7 14:32・台北市", PhotoInfo.caption(millis, "台北市", date, time24))
 
     @Test
     fun followsTheGivenTimeFormat() {
@@ -71,11 +71,17 @@ class PhotoInfoTest {
     }
 
     @Test
-    fun placeNameJoinsDistinctParts() {
-        assertEquals("台北市 信義區", PhotoInfo.placeName("台北市", "信義區"))
-        assertEquals("台北市", PhotoInfo.placeName("台北市", null))
-        assertEquals("信義區", PhotoInfo.placeName(null, "信義區"))
-        assertEquals("東京", PhotoInfo.placeName("東京", "東京"))
-        assertNull(PhotoInfo.placeName(null, " "))
+    fun cityNamePrefersCityOverDistrict() {
+        assertEquals("台北市", PhotoInfo.cityName(listOf("台北市", null, "台北市")))
+        assertEquals("台北市", PhotoInfo.cityName(listOf("信義區", null, "台北市"))) // locality is a district: use the city level
+        assertEquals("Taipei City", PhotoInfo.cityName(listOf("Xinyi District", null, "Taipei City")))
+        assertEquals("新竹縣", PhotoInfo.cityName(listOf(null, "新竹縣", "台灣")))
+    }
+
+    @Test
+    fun cityNameFallsBackWhenOnlyADistrictIsKnown() {
+        assertEquals("信義區", PhotoInfo.cityName(listOf("信義區", null, null)))
+        assertNull(PhotoInfo.cityName(listOf(null, " ", null)))
+        assertNull(PhotoInfo.cityName(emptyList()))
     }
 }
