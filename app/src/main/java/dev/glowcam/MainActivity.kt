@@ -43,12 +43,16 @@ class MainActivity : ComponentActivity() {
 
     private val analysisExecutor: ExecutorService = Executors.newSingleThreadExecutor()
     private val captureExecutor: ExecutorService = Executors.newSingleThreadExecutor()
+    private val placeExecutor: ExecutorService = Executors.newSingleThreadExecutor()
 
     @Volatile private var params = BeautyParams()
     @Volatile private var frontFacing = true
     private var imageCapture: ImageCapture? = null
     private var saving = false
     private var hasPhotos = false
+    private var askedLocation = false
+    private val locationLauncher =
+        registerForActivityResult(ActivityResultContracts.RequestPermission()) { /* place is optional */ }
     private lateinit var thumb: ImageView
 
     private val permissionLauncher =
@@ -110,7 +114,7 @@ class MainActivity : ComponentActivity() {
         val size = (120 * resources.displayMetrics.density).toInt()
         captureExecutor.execute {
             val latest = PhotoStore.list(this).firstOrNull()
-            val bmp = latest?.let { PhotoStore.thumbnail(this, it, size) }
+            val bmp = latest?.let { PhotoStore.thumbnail(this, it.uri, size) }
             runOnUiThread {
                 hasPhotos = bmp != null
                 thumb.setImageBitmap(bmp)
@@ -122,6 +126,7 @@ class MainActivity : ComponentActivity() {
         super.onDestroy()
         analysisExecutor.shutdown()
         captureExecutor.shutdown()
+        placeExecutor.shutdown()
     }
 
     private fun updateParams() {
@@ -135,8 +140,25 @@ class MainActivity : ComponentActivity() {
         permissionPanel.visibility = if (show) View.VISIBLE else View.GONE
     }
 
+    /** Optional: coarse location only labels photos with a place name; ask once per launch. */
+    private fun maybeAskLocation() {
+        if (askedLocation) return
+        askedLocation = true
+        if (checkSelfPermission(Manifest.permission.ACCESS_COARSE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
+            locationLauncher.launch(Manifest.permission.ACCESS_COARSE_LOCATION)
+        }
+    }
+
+    private fun flashScreen() {
+        val flash = findViewById<View>(R.id.flash)
+        flash.animate().cancel()
+        flash.alpha = 0.85f
+        flash.animate().alpha(0f).setDuration(220).start()
+    }
+
     private fun startCamera() {
         showPermissionPanel(false)
+        maybeAskLocation()
         val future = ProcessCameraProvider.getInstance(this)
         future.addListener({
             try {
@@ -214,14 +236,18 @@ class MainActivity : ComponentActivity() {
         shutter.isEnabled = false
         val beauty = params
         val mirror = frontFacing
+        val takenAt = System.currentTimeMillis()
+        val placeFuture = placeExecutor.submit<String?> { PlaceResolver.resolve(applicationContext) }
         capture.takePicture(captureExecutor, object : ImageCapture.OnImageCapturedCallback() {
             override fun onCaptureSuccess(image: ImageProxy) {
+                runOnUiThread { flashScreen() }
                 val ok = try {
                     val buf = image.planes[0].buffer
                     val jpeg = ByteArray(buf.remaining()).also { buf.get(it) }
                     val rot = image.imageInfo.rotationDegrees
                     image.close()
-                    saveBeautified(jpeg, rot, mirror, beauty)
+                    val place = runCatching { placeFuture.get(5, java.util.concurrent.TimeUnit.SECONDS) }.getOrNull()
+                    saveBeautified(jpeg, rot, mirror, beauty, takenAt, place)
                 } catch (e: Exception) {
                     Log.e(TAG, "save failed", e)
                     runCatching { image.close() }
@@ -250,7 +276,14 @@ class MainActivity : ComponentActivity() {
         })
     }
 
-    private fun saveBeautified(jpeg: ByteArray, rotation: Int, mirror: Boolean, beauty: BeautyParams): Boolean {
+    private fun saveBeautified(
+        jpeg: ByteArray,
+        rotation: Int,
+        mirror: Boolean,
+        beauty: BeautyParams,
+        takenAt: Long,
+        place: String?,
+    ): Boolean {
         val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
         BitmapFactory.decodeByteArray(jpeg, 0, jpeg.size, bounds)
         var sample = 1
@@ -272,6 +305,8 @@ class MainActivity : ComponentActivity() {
             put(MediaStore.Images.Media.DISPLAY_NAME, "GlowCam_${System.currentTimeMillis()}.jpg")
             put(MediaStore.Images.Media.MIME_TYPE, "image/jpeg")
             put(MediaStore.Images.Media.RELATIVE_PATH, "Pictures/GlowCam")
+            put(MediaStore.Images.Media.DATE_TAKEN, takenAt)
+            if (!place.isNullOrBlank()) put(MediaStore.Images.Media.DESCRIPTION, place)
             put(MediaStore.Images.Media.IS_PENDING, 1)
         }
         val resolver = contentResolver
