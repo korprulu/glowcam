@@ -5,10 +5,19 @@ import android.content.ContentValues
 import android.content.pm.PackageManager
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
+import android.hardware.camera2.CameraCaptureSession
+import android.hardware.camera2.CaptureRequest
+import android.hardware.camera2.CaptureResult
+import android.hardware.camera2.TotalCaptureResult
 import android.os.Bundle
+import android.os.Handler
+import android.os.Looper
+import android.os.SystemClock
 import android.provider.MediaStore
 import android.util.Log
 import android.util.Size
+import android.view.GestureDetector
+import android.view.MotionEvent
 import android.view.View
 import android.widget.ImageButton
 import android.widget.ImageView
@@ -17,7 +26,11 @@ import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.camera.core.AspectRatio
+import androidx.camera.camera2.interop.Camera2Interop
+import androidx.camera.camera2.interop.ExperimentalCamera2Interop
 import androidx.camera.core.CameraSelector
+import androidx.camera.core.DisplayOrientedMeteringPointFactory
+import androidx.camera.core.FocusMeteringAction
 import androidx.camera.core.ImageAnalysis
 import androidx.camera.core.ImageCapture
 import androidx.camera.core.ImageCaptureException
@@ -56,6 +69,23 @@ class MainActivity : ComponentActivity() {
     private val locationLauncher =
         registerForActivityResult(ActivityResultContracts.RequestPermission()) { /* place is optional */ }
     private lateinit var thumb: ImageView
+
+    // --- focus ring / tap-to-focus ---
+    private val ui = Handler(Looper.getMainLooper())
+    private val focus = FocusController()
+    private val tracker = FocusTracker() // analysis thread only
+    private lateinit var focusRing: FocusRing
+    @Volatile private var pendingTap: FloatArray? = null
+    @Volatile private var pendingStop = false
+    @Volatile private var frameW = 0
+    @Volatile private var frameH = 0
+    @Volatile private var lastAfState: Int? = null
+    private var lastSentX = -1f
+    private var lastSentY = -1f
+    private var lastSentAt = 0L
+    private val fadeCheck = Runnable {
+        if (focus.tick(SystemClock.uptimeMillis())) renderFocusRing()
+    }
 
     private val permissionLauncher =
         registerForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
@@ -102,6 +132,18 @@ class MainActivity : ComponentActivity() {
         zoomControl = findViewById(R.id.zoom)
         zoomControl.onSelect = { camera?.cameraControl?.setZoomRatio(it) }
         zoomControl.onRatioChanged = { camera?.cameraControl?.setZoomRatio(it) }
+        focusRing = findViewById(R.id.focus_ring)
+        val taps = GestureDetector(this, object : GestureDetector.SimpleOnGestureListener() {
+            override fun onDown(e: MotionEvent) = true
+            override fun onSingleTapUp(e: MotionEvent): Boolean {
+                onTapToFocus(e.x, e.y)
+                return true
+            }
+        })
+        previewView.setOnTouchListener { v, ev ->
+            if (ev.actionMasked == MotionEvent.ACTION_UP) v.performClick()
+            taps.onTouchEvent(ev)
+        }
         thumb = findViewById(R.id.thumb)
         thumb.setOnClickListener {
             if (hasPhotos) startActivity(android.content.Intent(this, GalleryActivity::class.java))
@@ -183,7 +225,7 @@ class MainActivity : ComponentActivity() {
         }
         val rotation = display?.rotation ?: 0
 
-        val analysis = ImageAnalysis.Builder()
+        val analysisBuilder = ImageAnalysis.Builder()
             .setResolutionSelector(
                 ResolutionSelector.Builder()
                     .setAspectRatioStrategy(AspectRatioStrategy.RATIO_4_3_FALLBACK_AUTO_STRATEGY)
@@ -195,7 +237,8 @@ class MainActivity : ComponentActivity() {
             .setOutputImageFormat(ImageAnalysis.OUTPUT_IMAGE_FORMAT_RGBA_8888)
             .setBackpressureStrategy(ImageAnalysis.STRATEGY_KEEP_ONLY_LATEST)
             .setTargetRotation(rotation)
-            .build()
+        observeAutofocus(analysisBuilder)
+        val analysis = analysisBuilder.build()
         analysis.setAnalyzer(analysisExecutor) { proxy -> analyze(proxy) }
 
         val capture = ImageCapture.Builder()
@@ -210,6 +253,7 @@ class MainActivity : ComponentActivity() {
         imageCapture = capture
 
         provider.unbindAll()
+        resetFocus()
         camera?.cameraInfo?.zoomState?.removeObservers(this)
         val cam = provider.bindToLifecycle(this, selector, analysis, capture)
         camera = cam
@@ -233,6 +277,7 @@ class MainActivity : ComponentActivity() {
             proxy.close()
             px = px.rotated(rot)
             if (frontFacing) px = px.mirrored()
+            trackFocus(px)
             px = BeautyFilter.apply(px, params)
             val bmp = Bitmap.createBitmap(px.data, px.width, px.height, Bitmap.Config.ARGB_8888)
             runOnUiThread { previewView.setImageBitmap(bmp) }
@@ -240,6 +285,137 @@ class MainActivity : ComponentActivity() {
             Log.e(TAG, "analyze failed", e)
             runCatching { proxy.close() }
         }
+    }
+
+    // ---------------- focus ----------------
+
+    /** Reports AF state changes from the camera (focus change events). */
+    @androidx.annotation.OptIn(ExperimentalCamera2Interop::class)
+    private fun observeAutofocus(builder: ImageAnalysis.Builder) {
+        Camera2Interop.Extender(builder).setSessionCaptureCallback(object : CameraCaptureSession.CaptureCallback() {
+            override fun onCaptureCompleted(session: CameraCaptureSession, request: CaptureRequest, result: TotalCaptureResult) {
+                val state = result.get(CaptureResult.CONTROL_AF_STATE)
+                val event = AfState.isFocusEvent(lastAfState, state)
+                lastAfState = state
+                if (event) ui.post { onFocusEvent() }
+            }
+        })
+    }
+
+    private fun onFocusEvent() {
+        focus.onFocusEvent(SystemClock.uptimeMillis())
+        renderFocusRing()
+        scheduleFade()
+    }
+
+    private fun scheduleFade() {
+        ui.removeCallbacks(fadeCheck)
+        ui.postDelayed(fadeCheck, FocusController.FADE_MS + 50)
+    }
+
+    private fun renderFocusRing() {
+        val fw = frameW
+        val fh = frameH
+        if (!focus.visible || fw == 0 || fh == 0) {
+            focusRing.hide()
+            return
+        }
+        val (x, y) = FocusMapping.frameToView(
+            focus.nx, focus.ny, previewView.width.toFloat(), previewView.height.toFloat(), fw.toFloat(), fh.toFloat(),
+        )
+        focusRing.showAt(x, y)
+    }
+
+    private fun resetFocus() {
+        pendingTap = null
+        pendingStop = true
+        focus.reset()
+        ui.removeCallbacks(fadeCheck)
+        lastAfState = null
+        focusRing.hide()
+    }
+
+    private fun meteringAction(nx: Float, ny: Float): FocusMeteringAction? {
+        val cam = camera ?: return null
+        val d = display ?: return null
+        val fw = frameW
+        val fh = frameH
+        if (fw == 0 || fh == 0) return null
+        val point = DisplayOrientedMeteringPointFactory(d, cam.cameraInfo, fw.toFloat(), fh.toFloat())
+            .createPoint(nx * fw, ny * fh)
+        return FocusMeteringAction.Builder(point, FocusMeteringAction.FLAG_AF or FocusMeteringAction.FLAG_AE)
+            .disableAutoCancel() // keep the custom point until we cancel it ourselves
+            .build()
+    }
+
+    private fun onTapToFocus(x: Float, y: Float) {
+        val fw = frameW
+        val fh = frameH
+        if (fw == 0 || fh == 0) return
+        val (nx, ny) = FocusMapping.viewToFrame(
+            x, y, previewView.width.toFloat(), previewView.height.toFloat(), fw.toFloat(), fh.toFloat(),
+        )
+        val action = meteringAction(nx, ny) ?: return
+        if (camera?.cameraInfo?.isFocusMeteringSupported(action) != true) return
+        camera?.cameraControl?.startFocusAndMetering(action)
+        lastSentX = nx
+        lastSentY = ny
+        lastSentAt = SystemClock.uptimeMillis()
+        pendingStop = false
+        pendingTap = floatArrayOf(nx, ny)
+        focus.onUserTap(nx, ny, lastSentAt)
+        ui.removeCallbacks(fadeCheck)
+        renderFocusRing()
+    }
+
+    /** Runs on the analysis thread for each (display-oriented) frame. */
+    private fun trackFocus(px: Pixels) {
+        frameW = px.width
+        frameH = px.height
+        if (pendingStop) {
+            pendingStop = false
+            tracker.stop()
+        }
+        val tap = pendingTap
+        if (tap != null) {
+            pendingTap = null
+            tracker.start(FocusTracker.toGray(px), px.width, px.height, (tap[0] * px.width).toInt(), (tap[1] * px.height).toInt())
+            return
+        }
+        if (!tracker.active) return
+        val pos = tracker.update(FocusTracker.toGray(px), px.width, px.height)
+        if (pos == null) {
+            ui.post { onFocusLost() }
+        } else {
+            val nx = pos.first / px.width.toFloat()
+            val ny = pos.second / px.height.toFloat()
+            ui.post { onFocusMoved(nx, ny) }
+        }
+    }
+
+    private fun onFocusMoved(nx: Float, ny: Float) {
+        if (!focus.custom) return
+        focus.onTrack(nx, ny)
+        renderFocusRing()
+        // Re-aim the camera once the point has moved noticeably (throttled: each aim restarts AF).
+        val now = SystemClock.uptimeMillis()
+        val moved = kotlin.math.abs(nx - lastSentX) + kotlin.math.abs(ny - lastSentY)
+        if (moved > 0.06f && now - lastSentAt > 400) {
+            meteringAction(nx, ny)?.let { camera?.cameraControl?.startFocusAndMetering(it) }
+            lastSentX = nx
+            lastSentY = ny
+            lastSentAt = now
+        }
+    }
+
+    /** Tracked point left the frame or could not be followed: back to the centre, custom focus off. */
+    private fun onFocusLost() {
+        if (!focus.custom) return
+        pendingStop = true
+        camera?.cameraControl?.cancelFocusAndMetering()
+        focus.onTrackLost(SystemClock.uptimeMillis())
+        renderFocusRing()
+        scheduleFade()
     }
 
     private fun takePhoto() {
