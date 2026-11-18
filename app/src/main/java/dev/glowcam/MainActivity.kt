@@ -242,9 +242,9 @@ class MainActivity : ComponentActivity() {
         val preview = Preview.Builder()
             .setResolutionSelector(
                 ResolutionSelector.Builder()
-                    .setAspectRatioStrategy(AspectRatioStrategy.RATIO_4_3_FALLBACK_AUTO_STRATEGY)
+                    .setAspectRatioStrategy(AspectRatioStrategy.RATIO_16_9_FALLBACK_AUTO_STRATEGY)
                     .setResolutionStrategy(
-                        ResolutionStrategy(Size(1440, 1080), ResolutionStrategy.FALLBACK_RULE_CLOSEST_LOWER_THEN_HIGHER),
+                        ResolutionStrategy(Size(1920, 1080), ResolutionStrategy.FALLBACK_RULE_CLOSEST_LOWER_THEN_HIGHER),
                     )
                     .build(),
             )
@@ -257,9 +257,9 @@ class MainActivity : ComponentActivity() {
         val analysisBuilder = ImageAnalysis.Builder()
             .setResolutionSelector(
                 ResolutionSelector.Builder()
-                    .setAspectRatioStrategy(AspectRatioStrategy.RATIO_4_3_FALLBACK_AUTO_STRATEGY)
+                    .setAspectRatioStrategy(AspectRatioStrategy.RATIO_16_9_FALLBACK_AUTO_STRATEGY)
                     .setResolutionStrategy(
-                        ResolutionStrategy(Size(640, 480), ResolutionStrategy.FALLBACK_RULE_CLOSEST_HIGHER_THEN_LOWER),
+                        ResolutionStrategy(Size(640, 360), ResolutionStrategy.FALLBACK_RULE_CLOSEST_HIGHER_THEN_LOWER),
                     )
                     .build(),
             )
@@ -273,7 +273,7 @@ class MainActivity : ComponentActivity() {
         val capture = ImageCapture.Builder()
             .setResolutionSelector(
                 ResolutionSelector.Builder()
-                    .setAspectRatioStrategy(AspectRatioStrategy.RATIO_4_3_FALLBACK_AUTO_STRATEGY)
+                    .setAspectRatioStrategy(AspectRatioStrategy.RATIO_16_9_FALLBACK_AUTO_STRATEGY)
                     .build(),
             )
             .setCaptureMode(ImageCapture.CAPTURE_MODE_MINIMIZE_LATENCY)
