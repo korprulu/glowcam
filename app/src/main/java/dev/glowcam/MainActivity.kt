@@ -35,6 +35,7 @@ import androidx.camera.core.ImageAnalysis
 import androidx.camera.core.ImageCapture
 import androidx.camera.core.ImageCaptureException
 import androidx.camera.core.ImageProxy
+import androidx.camera.core.Preview
 import androidx.camera.core.resolutionselector.AspectRatioStrategy
 import androidx.camera.core.resolutionselector.ResolutionSelector
 import androidx.camera.core.resolutionselector.ResolutionStrategy
@@ -47,7 +48,7 @@ import java.util.concurrent.Executors
 
 class MainActivity : ComponentActivity() {
 
-    private lateinit var previewView: ImageView
+    private lateinit var previewView: GlPreviewView
     private lateinit var shutter: ImageButton
     private lateinit var permissionPanel: View
     private lateinit var seekSmooth: SeekBar
@@ -97,6 +98,8 @@ class MainActivity : ComponentActivity() {
         setContentView(R.layout.activity_main)
 
         previewView = findViewById(R.id.preview)
+        previewView.onContextRecreated = { runOnUiThread { if (hasCameraPermission()) startCamera() } }
+        previewView.onGlError = { Toast.makeText(this, R.string.camera_failed, Toast.LENGTH_LONG).show() }
         shutter = findViewById(R.id.btn_shutter)
         permissionPanel = findViewById(R.id.permission_panel)
         seekSmooth = findViewById(R.id.seek_smooth)
@@ -154,7 +157,13 @@ class MainActivity : ComponentActivity() {
 
     override fun onResume() {
         super.onResume()
+        previewView.onResume()
         refreshThumbnail()
+    }
+
+    override fun onPause() {
+        previewView.onPause()
+        super.onPause()
     }
 
     private fun refreshThumbnail() {
@@ -178,6 +187,8 @@ class MainActivity : ComponentActivity() {
 
     private fun updateParams() {
         params = BeautyParams.fromProgress(seekSmooth.progress, seekWhiten.progress, seekRosy.progress)
+        previewView.params = params
+        previewView.requestRender()
     }
 
     private fun hasCameraPermission() =
@@ -225,6 +236,22 @@ class MainActivity : ComponentActivity() {
         }
         val rotation = display?.rotation ?: 0
 
+        // Native preview stream, rendered (with the beauty shader) by GlPreviewView.
+        val preview = Preview.Builder()
+            .setResolutionSelector(
+                ResolutionSelector.Builder()
+                    .setAspectRatioStrategy(AspectRatioStrategy.RATIO_4_3_FALLBACK_AUTO_STRATEGY)
+                    .setResolutionStrategy(
+                        ResolutionStrategy(Size(1440, 1080), ResolutionStrategy.FALLBACK_RULE_CLOSEST_LOWER_THEN_HIGHER),
+                    )
+                    .build(),
+            )
+            .setTargetRotation(rotation)
+            .build()
+        previewView.mirror = frontFacing
+        preview.setSurfaceProvider(previewView.surfaceProvider)
+
+        // Low-resolution frames are only used to follow the tap-to-focus point.
         val analysisBuilder = ImageAnalysis.Builder()
             .setResolutionSelector(
                 ResolutionSelector.Builder()
@@ -255,7 +282,7 @@ class MainActivity : ComponentActivity() {
         provider.unbindAll()
         resetFocus()
         camera?.cameraInfo?.zoomState?.removeObservers(this)
-        val cam = provider.bindToLifecycle(this, selector, analysis, capture)
+        val cam = provider.bindToLifecycle(this, selector, preview, analysis, capture)
         camera = cam
         cam.cameraInfo.zoomState.observe(this) { zs ->
             zoomControl.minRatio = zs.minZoomRatio
@@ -267,20 +294,28 @@ class MainActivity : ComponentActivity() {
 
     private fun analyze(proxy: ImageProxy) {
         try {
+            val rot = proxy.imageInfo.rotationDegrees
+            val (w, h) = PreviewTransform.displaySize(proxy.width, proxy.height, rot)
+            frameW = w
+            frameH = h
+            if (pendingStop) {
+                pendingStop = false
+                tracker.stop()
+            }
+            if (pendingTap == null && !tracker.active) {
+                proxy.close()
+                return
+            }
             val plane = proxy.planes[0]
             val buf = plane.buffer
             buf.rewind()
             val bytes = ByteArray(buf.remaining())
             buf.get(bytes)
             var px = Pixels.fromRgba(bytes, plane.rowStride, proxy.width, proxy.height)
-            val rot = proxy.imageInfo.rotationDegrees
             proxy.close()
             px = px.rotated(rot)
             if (frontFacing) px = px.mirrored()
             trackFocus(px)
-            px = BeautyFilter.apply(px, params)
-            val bmp = Bitmap.createBitmap(px.data, px.width, px.height, Bitmap.Config.ARGB_8888)
-            runOnUiThread { previewView.setImageBitmap(bmp) }
         } catch (e: Exception) {
             Log.e(TAG, "analyze failed", e)
             runCatching { proxy.close() }
