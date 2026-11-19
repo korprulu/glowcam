@@ -153,6 +153,12 @@ class MainActivity : ComponentActivity() {
                 onTapToFocus(e.x, e.y)
                 return true
             }
+
+            // Double tap anywhere on the screen takes a photo (the first tap has just focused there).
+            override fun onDoubleTap(e: MotionEvent): Boolean {
+                if (!styles.isEditing) takePhoto()
+                return true
+            }
         })
         previewView.setOnTouchListener { v, ev ->
             if (ev.actionMasked == MotionEvent.ACTION_UP) v.performClick()

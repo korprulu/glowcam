@@ -45,6 +45,9 @@ class StyleController(
     private val deleteButton = activity.findViewById<Button>(R.id.btn_editor_delete)
     private var session: Session? = null
 
+    /** True while the style editor is open (the camera must not shoot or refocus meanwhile). */
+    val isEditing: Boolean get() = session != null
+
     /** True while the strip or the editor is open (the back button closes them first). */
     val isOpen: Boolean get() = session != null || strip.visibility == View.VISIBLE
 
