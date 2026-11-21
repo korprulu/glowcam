@@ -3,13 +3,16 @@ package dev.glowcam
 import kotlin.math.ceil
 import kotlin.math.max
 import kotlin.math.min
+import kotlin.math.sqrt
 
 /**
  * Portrait beautification on ARGB pixels, pure Kotlin (no Android deps, unit-testable).
  *
  * 1. Soft skin mask from YCbCr colour ranges.
  * 2. Edge-preserving smoothing via a fast guided filter (He et al.), guide = luma.
- * 3. Whitening (lift toward white) and rosy tint, both weighted by the skin mask.
+ * 3. Frequency separation: colour comes fully from the smoothed image, luma keeps part of its fine
+ *    detail (pores) but not blemishes; smoothing is relieved where the local luma varies a lot (features).
+ * 4. Whitening (lift toward white) and rosy tint, both weighted by the skin mask.
  */
 object BeautyFilter {
 
@@ -112,10 +115,16 @@ object BeautyFilter {
                 val b = (c and 0xFF) / 255f
                 val m = up(mask)
                 val luma = 0.299f * r + 0.587f * g + 0.114f * b
-                val k = m * smoothK
-                var nr = r + (up(ar) * luma + up(br) - r) * k
-                var ng = g + (up(ag) * luma + up(bg) - g) * k
-                var nb = b + (up(ab) * luma + up(bb) - b) * k
+                val sr0 = up(ar) * luma + up(br)
+                val sg0 = up(ag) * luma + up(bg)
+                val sb0 = up(ab) * luma + up(bb)
+                val d = luma - (0.299f * sr0 + 0.587f * sg0 + 0.114f * sb0)
+                val keep = BeautyTuning.detailKeep(d, p.smooth) * d
+                val std = sqrt(max(0f, up(varI)))
+                val k = m * smoothK * BeautyTuning.strengthScale(std)
+                var nr = r + (sr0 + keep - r) * k
+                var ng = g + (sg0 + keep - g) * k
+                var nb = b + (sb0 + keep - b) * k
                 val wk = m * p.whiten * 0.4f
                 nr += (1f - nr) * wk
                 ng += (1f - ng) * wk

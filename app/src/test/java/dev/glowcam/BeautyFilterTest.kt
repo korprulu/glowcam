@@ -145,4 +145,30 @@ class BeautyFilterTest {
         assertTrue(BeautyFilter.skinScore(0.1f, 0.8f, 0.1f) < 0.01f)
         assertTrue(BeautyFilter.skinScore(0f, 0f, 0f) < 0.01f)
     }
+
+    @Test
+    fun fineTextureSurvivesButMoreThanBlemishesDo() {
+        // Mild texture (amp 4 ~ pores) keeps some of its variance; strong noise (amp 25) is mostly removed.
+        val mild = noisySkin(120, 160, 4)
+        val mildOut = BeautyFilter.apply(mild, BeautyParams(1f, 0f, 0f))
+        val kept = lumaVariance(mildOut, 10) / lumaVariance(mild, 10)
+        val strong = noisySkin(120, 160, 25)
+        val strongOut = BeautyFilter.apply(strong, BeautyParams(1f, 0f, 0f))
+        val removed = lumaVariance(strongOut, 10) / lumaVariance(strong, 10)
+        assertTrue("kept $kept vs $removed", kept > removed)
+    }
+
+    @Test
+    fun smoothingIsWeakerAroundHighContrastDetail() {
+        // Skin with a thin dark line (a brow/eyelash): the line must stay clearly darker than the skin.
+        val w = 120
+        val h = 120
+        val line = rgb(120, 85, 70)
+        val src = Pixels(IntArray(w * h) { if ((it % w) in 59..60) line else rgb(224, 172, 150) }, w, h)
+        val out = BeautyFilter.apply(src, BeautyParams(1f, 0f, 0f))
+        val y = h / 2
+        val before = luma(src.data[y * w + 10]) - luma(src.data[y * w + 59])
+        val after = luma(out.data[y * w + 10]) - luma(out.data[y * w + 59])
+        assertTrue("line $before -> $after", after > before * 0.5)
+    }
 }

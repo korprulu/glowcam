@@ -71,6 +71,7 @@ class GlPreviewView @JvmOverloads constructor(context: Context, attrs: Attribute
         private var uWhiten = 0
         private var uRosy = 0
         private var uActive = 0
+        private var uKeep = 0
         private var texId = 0
         private var st: SurfaceTexture? = null
         private var pending: SurfaceRequest? = null
@@ -137,6 +138,7 @@ class GlPreviewView @JvmOverloads constructor(context: Context, attrs: Attribute
             uWhiten = GLES20.glGetUniformLocation(program, "uWhiten")
             uRosy = GLES20.glGetUniformLocation(program, "uRosy")
             uActive = GLES20.glGetUniformLocation(program, "uActive")
+            uKeep = GLES20.glGetUniformLocation(program, "uKeep")
 
             val tex = IntArray(1)
             GLES20.glGenTextures(1, tex, 0)
@@ -207,6 +209,7 @@ class GlPreviewView @JvmOverloads constructor(context: Context, attrs: Attribute
             GLES20.glUniform1f(uWhiten, p.whiten)
             GLES20.glUniform1f(uRosy, p.rosy)
             GLES20.glUniform1f(uActive, if (p.isIdentity) 0f else 1f)
+            GLES20.glUniform1f(uKeep, BeautyTuning.textureKeep(p.smooth))
 
             GLES20.glEnableVertexAttribArray(aPos)
             GLES20.glVertexAttribPointer(aPos, 2, GLES20.GL_FLOAT, false, 0, quad)
@@ -235,8 +238,9 @@ class GlPreviewView @JvmOverloads constructor(context: Context, attrs: Attribute
             }
         """
 
-        // Skin mask (YCbCr), 5x5 bilateral smoothing weighted by the mask, whitening, rosy tint.
-        const val FRAGMENT = """
+        // Skin mask (YCbCr), 5x5 bilateral smoothing weighted by the mask, frequency separation (colour from
+        // the smoothed image, pores kept in part, blemishes not), relief on high-variance areas, whitening, rosy tint.
+        val FRAGMENT = """
             #extension GL_OES_EGL_image_external : require
             precision mediump float;
             varying vec2 vUV;
@@ -248,6 +252,7 @@ class GlPreviewView @JvmOverloads constructor(context: Context, attrs: Attribute
             uniform float uWhiten;
             uniform float uRosy;
             uniform float uActive;
+            uniform float uKeep;
 
             float skin(vec3 c) {
                 float y = dot(c, vec3(0.299, 0.587, 0.114)) * 255.0;
@@ -269,23 +274,34 @@ class GlPreviewView @JvmOverloads constructor(context: Context, attrs: Attribute
                 float wsum = 0.0;
                 float msum = 0.0;
                 float ssum = 0.0;
+                float lsum = 0.0;
+                float l2sum = 0.0;
                 float inv2s = 1.0 / (2.0 * uSigma * uSigma);
                 for (int i = -2; i <= 2; i++) {
                     for (int j = -2; j <= 2; j++) {
                         vec2 o = vec2(float(i), float(j)) * uTexel * uSpacing;
                         vec3 c = texture2D(uTex, vUV + o).rgb;
                         float ws = exp(-float(i * i + j * j) * 0.25);
-                        float dl = dot(c, vec3(0.299, 0.587, 0.114)) - l0;
+                        float lc = dot(c, vec3(0.299, 0.587, 0.114));
+                        float dl = lc - l0;
                         float w = ws * exp(-dl * dl * inv2s);
                         sum += c * w;
                         wsum += w;
                         msum += ws * skin(c);
                         ssum += ws;
+                        lsum += ws * lc;
+                        l2sum += ws * lc * lc;
                     }
                 }
                 vec3 smoothed = sum / wsum;
                 float m = msum / ssum;
-                vec3 col = mix(c0, smoothed, m * uSmooth * 0.85);
+                float lm = lsum / ssum;
+                float sd = sqrt(max(l2sum / ssum - lm * lm, 0.0));
+                float edge = 1.0 - ${BeautyTuning.EDGE_RELIEF} * smoothstep(${BeautyTuning.STD_LO}, ${BeautyTuning.STD_HI}, sd);
+                float d = l0 - dot(smoothed, vec3(0.299, 0.587, 0.114));
+                float keep = uKeep * (1.0 - smoothstep(${BeautyTuning.DETAIL_LO}, ${BeautyTuning.DETAIL_HI}, abs(d)));
+                vec3 target = smoothed + vec3(d * keep);
+                vec3 col = mix(c0, target, m * uSmooth * 0.85 * edge);
                 col += (1.0 - col) * (m * uWhiten * 0.4);
                 float rk = m * uRosy;
                 col += vec3(0.06, -0.01, 0.015) * rk;
