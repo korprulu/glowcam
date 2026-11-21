@@ -200,4 +200,30 @@ class StyleRepositoryTest {
         assertEquals("舊", r.state.selected.name)
         assertEquals(false, r.readOnly)
     }
+
+    @Test
+    fun originalStyleIsAlwaysFirstAndHasNoEffect() {
+        val r = repo()
+        assertEquals(listOf("原圖", "人像"), r.state.all.map { it.name })
+        assertTrue(r.state.all.first().toBeautyParams().isIdentity)
+    }
+
+    @Test
+    fun originalStyleCanBeSelectedAndIsRemembered() {
+        val storage = MemoryStorage()
+        val r = repo(storage)
+        r.select(DefaultStyles.ORIGINAL_ID)
+        assertEquals("原圖", repo(storage).state.selected.name)
+    }
+
+    @Test
+    fun originalStyleIsNeverStoredEditedOrDeleted() {
+        val storage = MemoryStorage()
+        val r = repo(storage)
+        r.save(DefaultStyles.original().withParams(BeautyParams(1f, 1f, 1f)))
+        r.delete(DefaultStyles.ORIGINAL_ID)
+        assertEquals(1, r.state.styles.size)
+        assertTrue(!storage.map["styles_v1"]!!.contains("\"original\""))
+        assertTrue(DefaultStyles.original().toBeautyParams().isIdentity)
+    }
 }

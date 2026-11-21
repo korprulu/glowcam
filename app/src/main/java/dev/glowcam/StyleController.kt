@@ -110,7 +110,7 @@ class StyleController(
             layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT)
                 .apply { marginEnd = (8 * dp).toInt() }
         }
-        for (style in repo.state.styles) {
+        for (style in repo.state.all) {
             list.addView(
                 chip(style.name, style.id == repo.state.selectedId).apply {
                     setOnClickListener {
@@ -119,9 +119,11 @@ class StyleController(
                         rebuildStrip()
                         strip.visibility = View.GONE
                     }
-                    setOnLongClickListener {
-                        openEditor(style, isNew = false)
-                        true
+                    if (style.id != DefaultStyles.ORIGINAL_ID) {
+                        setOnLongClickListener {
+                            openEditor(style, isNew = false)
+                            true
+                        }
                     }
                 },
             )

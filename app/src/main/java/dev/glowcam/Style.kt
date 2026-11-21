@@ -33,6 +33,11 @@ data class Style(val id: String, val name: String, val values: Map<String, Float
 object DefaultStyles {
     const val PORTRAIT_ID = "portrait"
 
+    /** Built-in "no effect" style: always available, never stored, cannot be edited or deleted. */
+    const val ORIGINAL_ID = "original"
+
+    fun original() = Style(ORIGINAL_ID, "原圖", emptyMap())
+
     fun portrait() = Style(
         PORTRAIT_ID,
         "人像",
@@ -50,7 +55,12 @@ interface KeyValueStorage {
 }
 
 data class StyleState(val styles: List<Style>, val selectedId: String) {
-    val selected: Style get() = styles.firstOrNull { it.id == selectedId } ?: styles.first()
+    val selected: Style
+        get() = if (selectedId == DefaultStyles.ORIGINAL_ID) DefaultStyles.original()
+        else styles.firstOrNull { it.id == selectedId } ?: styles.first()
+
+    /** The built-in original style followed by the user's styles: what the picker shows. */
+    val all: List<Style> get() = listOf(DefaultStyles.original()) + styles
 }
 
 /** All styles plus the one currently applied; every change is persisted immediately. */
@@ -85,12 +95,13 @@ class StyleRepository(
     }
 
     fun select(id: String): StyleState {
-        if (state.styles.none { it.id == id }) return state
+        if (id != DefaultStyles.ORIGINAL_ID && state.styles.none { it.id == id }) return state
         return update(state.copy(selectedId = id))
     }
 
     /** Inserts or replaces the style (matched by id) and applies it. */
     fun save(style: Style): StyleState {
+        if (style.id == DefaultStyles.ORIGINAL_ID) return state
         val cleaned = style.copy(name = style.name.trim().ifEmpty { DEFAULT_NAME })
         val exists = state.styles.any { it.id == cleaned.id }
         val list = if (exists) state.styles.map { if (it.id == cleaned.id) cleaned else it } else state.styles + cleaned

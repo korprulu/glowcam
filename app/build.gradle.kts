@@ -10,7 +10,7 @@ android {
         applicationId = "dev.glowcam"
         minSdk = 37          // Android 17
         targetSdk = 37
-        versionCode = 18
+        versionCode = 19
         versionName = "1.10.0"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
