@@ -43,6 +43,7 @@ class StyleController(
     private val seekWhiten = activity.findViewById<SeekBar>(R.id.seek_whiten)
     private val seekRosy = activity.findViewById<SeekBar>(R.id.seek_rosy)
     private val deleteButton = activity.findViewById<Button>(R.id.btn_editor_delete)
+    private val defaultButton = activity.findViewById<Button>(R.id.btn_editor_default)
     private var session: Session? = null
 
     /** True while the style editor is open (the camera must not shoot or refocus meanwhile). */
@@ -57,7 +58,7 @@ class StyleController(
         activity.findViewById<View>(R.id.btn_editor_save).setOnClickListener { save() }
         activity.findViewById<View>(R.id.btn_editor_cancel).setOnClickListener { cancel() }
         deleteButton.setOnClickListener { confirmDelete() }
-        activity.findViewById<View>(R.id.btn_editor_default).setOnClickListener { setSliders(DefaultStyles.recommended()) }
+        defaultButton.setOnClickListener { setSliders(DefaultStyles.recommended()) }
 
         val live = object : SeekBar.OnSeekBarChangeListener {
             override fun onProgressChanged(sb: SeekBar?, progress: Int, fromUser: Boolean) {
@@ -140,7 +141,10 @@ class StyleController(
         session = Session(style, isNew, style.name)
         setSliders(style.toBeautyParams())
         editorName.text = style.name
-        deleteButton.visibility = if (!isNew && repo.state.styles.size > 1) View.VISIBLE else View.GONE
+        // Built-in style: can be restored to its default values. Saved custom style: can be deleted instead.
+        val builtIn = !isNew && style.id == DefaultStyles.PORTRAIT_ID
+        defaultButton.visibility = if (builtIn) View.VISIBLE else View.GONE
+        deleteButton.visibility = if (!isNew && !builtIn) View.VISIBLE else View.GONE
         strip.visibility = View.GONE
         controls.visibility = View.GONE
         editor.visibility = View.VISIBLE

@@ -227,4 +227,14 @@ class StyleRepositoryTest {
         assertTrue(!storage.map["styles_v1"]!!.contains("\"original\""))
         assertTrue(DefaultStyles.original().toBeautyParams().isIdentity)
     }
+
+    @Test
+    fun builtInPortraitStyleCannotBeDeleted() {
+        val r = repo()
+        r.save(r.draft(r.state.selected).copy(name = "B"))
+        r.delete(DefaultStyles.PORTRAIT_ID)
+        assertEquals(listOf("人像", "B"), r.state.styles.map { it.name })
+        r.delete(r.state.selected.id) // custom style: deletable
+        assertEquals(listOf("人像"), r.state.styles.map { it.name })
+    }
 }

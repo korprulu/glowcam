@@ -116,9 +116,9 @@ class StyleRepository(
         return update(StyleState(list, cleaned.id))
     }
 
-    /** The last remaining style cannot be deleted. */
+    /** Only custom styles can be deleted: the built-in portrait style (and the last remaining one) stays. */
     fun delete(id: String): StyleState {
-        if (state.styles.size <= 1 || state.styles.none { it.id == id }) return state
+        if (id == DefaultStyles.PORTRAIT_ID || state.styles.size <= 1 || state.styles.none { it.id == id }) return state
         val list = state.styles.filter { it.id != id }
         val selected = if (state.selectedId == id) list.first().id else state.selectedId
         return update(StyleState(list, selected))
