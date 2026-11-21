@@ -13,6 +13,7 @@
     <string name="rename">重新命名</string>
     <string name="style_name_title">風格名稱</string>
     <string name="cancel">取消</string>
+    <string name="restore_default">預設</string>
     <string name="save">儲存</string>
     <string name="delete_style_title">刪除這個風格？</string>
     <string name="version">版本</string>

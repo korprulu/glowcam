@@ -57,6 +57,7 @@ class StyleController(
         activity.findViewById<View>(R.id.btn_editor_save).setOnClickListener { save() }
         activity.findViewById<View>(R.id.btn_editor_cancel).setOnClickListener { cancel() }
         deleteButton.setOnClickListener { confirmDelete() }
+        activity.findViewById<View>(R.id.btn_editor_default).setOnClickListener { setSliders(DefaultStyles.recommended()) }
 
         val live = object : SeekBar.OnSeekBarChangeListener {
             override fun onProgressChanged(sb: SeekBar?, progress: Int, fromUser: Boolean) {
@@ -137,16 +138,19 @@ class StyleController(
 
     private fun openEditor(style: Style, isNew: Boolean) {
         session = Session(style, isNew, style.name)
-        val p = style.toBeautyParams()
-        seekSmooth.progress = Math.round(p.smooth * BeautyParams.MAX_PROGRESS)
-        seekWhiten.progress = Math.round(p.whiten * BeautyParams.MAX_PROGRESS)
-        seekRosy.progress = Math.round(p.rosy * BeautyParams.MAX_PROGRESS)
+        setSliders(style.toBeautyParams())
         editorName.text = style.name
         deleteButton.visibility = if (!isNew && repo.state.styles.size > 1) View.VISIBLE else View.GONE
         strip.visibility = View.GONE
         controls.visibility = View.GONE
         editor.visibility = View.VISIBLE
         onParams(slidersToParams()) // preview shows this style while it is being adjusted
+    }
+
+    private fun setSliders(p: BeautyParams) {
+        seekSmooth.progress = Math.round(p.smooth * BeautyParams.MAX_PROGRESS)
+        seekWhiten.progress = Math.round(p.whiten * BeautyParams.MAX_PROGRESS)
+        seekRosy.progress = Math.round(p.rosy * BeautyParams.MAX_PROGRESS)
     }
 
     private fun closeEditor() {

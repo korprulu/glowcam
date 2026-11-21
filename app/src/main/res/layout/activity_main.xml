@@ -186,6 +186,11 @@
                 android:layout_height="wrap_content"
                 android:text="@string/delete"
                 android:textColor="#FF6B6B" />
+            <Button
+                android:id="@+id/btn_editor_default"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="@string/restore_default" />
             <View
                 android:layout_width="0dp"
                 android:layout_height="1dp"

@@ -38,11 +38,19 @@ object DefaultStyles {
 
     fun original() = Style(ORIGINAL_ID, "原圖", emptyMap())
 
+    /** Recommended portrait values; also what the editor's 預設 button restores. */
+    const val PORTRAIT_SMOOTH = 0.55f
+    const val PORTRAIT_WHITEN = 0.30f
+    const val PORTRAIT_ROSY = 0.15f
+
     fun portrait() = Style(
         PORTRAIT_ID,
         "人像",
-        mapOf(StyleKeys.SMOOTH to 0.6f, StyleKeys.WHITEN to 0.3f, StyleKeys.ROSY to 0.2f),
+        mapOf(StyleKeys.SMOOTH to PORTRAIT_SMOOTH, StyleKeys.WHITEN to PORTRAIT_WHITEN, StyleKeys.ROSY to PORTRAIT_ROSY),
     )
+
+    /** The recommended values as editor parameters. */
+    fun recommended() = BeautyParams(PORTRAIT_SMOOTH, PORTRAIT_WHITEN, PORTRAIT_ROSY)
 }
 
 /** Where the repository keeps its data (SharedPreferences on Android, a map in tests). */

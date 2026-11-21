@@ -28,9 +28,10 @@ class StyleRepositoryTest {
         assertEquals(1, s.styles.size)
         assertEquals("人像", s.selected.name)
         val p = s.selected.toBeautyParams()
-        assertEquals(0.6f, p.smooth, 1e-6f)
-        assertEquals(0.3f, p.whiten, 1e-6f)
-        assertEquals(0.2f, p.rosy, 1e-6f)
+        assertEquals(DefaultStyles.recommended(), p)
+        assertEquals(0.55f, p.smooth, 1e-6f)
+        assertEquals(0.30f, p.whiten, 1e-6f)
+        assertEquals(0.15f, p.rosy, 1e-6f)
     }
 
     @Test
